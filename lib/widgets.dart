@@ -1,11 +1,167 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_theme.dart';
 import 'models.dart';
 import 'providers.dart';
 
-// Session Type Selector Widget
+// Enhanced Session Type Selector Widget with Special Button
+class EnhancedSessionTypeSelector extends ConsumerWidget {
+  final SessionType selectedType;
+  final bool isSpecialSelected;
+  final Function(SessionType) onTypeChanged;
+  final VoidCallback onSpecialPressed;
+  
+  const EnhancedSessionTypeSelector({
+    super.key,
+    required this.selectedType,
+    required this.isSpecialSelected,
+    required this.onTypeChanged,
+    required this.onSpecialPressed,
+  });
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final selectedGoal = ref.watch(selectedGoalProvider);
+    
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius12),
+      ),
+      child: Row(
+        children: [
+          _buildOption(
+            context: context,
+            type: SessionType.longBreak,
+            label: 'Long',
+            icon: Icons.weekend_rounded,
+            isSelected: !isSpecialSelected && selectedType == SessionType.longBreak,
+            onTap: () => onTypeChanged(SessionType.longBreak),
+          ),
+          _buildOption(
+            context: context,
+            type: SessionType.shortBreak,
+            label: 'Short',
+            icon: Icons.coffee_rounded,
+            isSelected: !isSpecialSelected && selectedType == SessionType.shortBreak,
+            onTap: () => onTypeChanged(SessionType.shortBreak),
+          ),
+          _buildOption(
+            context: context,
+            type: SessionType.focus,
+            label: 'Focus',
+            icon: Icons.work_rounded,
+            isSelected: !isSpecialSelected && selectedType == SessionType.focus,
+            onTap: () => onTypeChanged(SessionType.focus),
+          ),
+          _buildSpecialOption(
+            context: context,
+            label: 'Special',
+            icon: Icons.star_rounded,
+            isSelected: isSpecialSelected,
+            onTap: onSpecialPressed,
+            hasGoal: selectedGoal != null && selectedGoal.estimatedMinutes > 0,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildOption({
+    required BuildContext context,
+    required SessionType type,
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: AppTheme.animBase,
+          padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.radius8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : theme.colorScheme.onSurface,
+              ),
+              const SizedBox(width: AppTheme.spacing4),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isSelected ? Colors.white : theme.colorScheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSpecialOption({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool hasGoal,
+  }) {
+    final theme = Theme.of(context);
+    final color = hasGoal 
+        ? (isSelected ? AppTheme.secondaryColor : theme.colorScheme.onSurface)
+        : theme.colorScheme.onSurface.withOpacity(0.3);
+    
+    return Expanded(
+      child: GestureDetector(
+        onTap: hasGoal ? onTap : null,
+        child: AnimatedContainer(
+          duration: AppTheme.animBase,
+          padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.secondaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.radius8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : color,
+              ),
+              const SizedBox(width: AppTheme.spacing4),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isSelected ? Colors.white : color,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Original Session Type Selector Widget
 class SessionTypeSelector extends StatelessWidget {
   final SessionType selectedType;
   final Function(SessionType) onTypeChanged;
@@ -94,6 +250,203 @@ class SessionTypeSelector extends StatelessWidget {
   }
 }
 
+// Time Duration Picker Widget with Hour and Minute Wheels
+class TimeDurationPicker extends StatefulWidget {
+  final Duration initialDuration;
+  final Function(Duration) onDurationChanged;
+  
+  const TimeDurationPicker({
+    super.key,
+    required this.initialDuration,
+    required this.onDurationChanged,
+  });
+  
+  @override
+  State<TimeDurationPicker> createState() => _TimeDurationPickerState();
+}
+
+class _TimeDurationPickerState extends State<TimeDurationPicker> {
+  late int selectedHours;
+  late int selectedMinutes;
+  late FixedExtentScrollController hoursController;
+  late FixedExtentScrollController minutesController;
+  
+  @override
+  void initState() {
+    super.initState();
+    selectedHours = widget.initialDuration.inHours;
+    selectedMinutes = widget.initialDuration.inMinutes.remainder(60);
+    hoursController = FixedExtentScrollController(initialItem: selectedHours);
+    minutesController = FixedExtentScrollController(initialItem: selectedMinutes);
+  }
+  
+  @override
+  void dispose() {
+    hoursController.dispose();
+    minutesController.dispose();
+    super.dispose();
+  }
+  
+  void _updateDuration() {
+    final duration = Duration(hours: selectedHours, minutes: selectedMinutes);
+    widget.onDurationChanged(duration);
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius16),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Hours Picker
+          Expanded(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: AppTheme.spacing12),
+                  child: Text(
+                    'Hours',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoPicker(
+                    scrollController: hoursController,
+                    itemExtent: 40,
+                    backgroundColor: Colors.transparent,
+                    onSelectedItemChanged: (index) {
+                      setState(() {
+                        selectedHours = index;
+                      });
+                      _updateDuration();
+                    },
+                    selectionOverlay: Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                          bottom: BorderSide(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                    children: List<Widget>.generate(24, (index) {
+                      return Center(
+                        child: Text(
+                          index.toString().padLeft(2, '0'),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: selectedHours == index 
+                                ? AppTheme.primaryColor 
+                                : theme.colorScheme.onSurface,
+                            fontWeight: selectedHours == index 
+                                ? FontWeight.bold 
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Separator
+          Container(
+            width: 40,
+            child: Center(
+              child: Text(
+                ':',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          
+          // Minutes Picker
+          Expanded(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: AppTheme.spacing12),
+                  child: Text(
+                    'Minutes',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoPicker(
+                    scrollController: minutesController,
+                    itemExtent: 40,
+                    backgroundColor: Colors.transparent,
+                    onSelectedItemChanged: (index) {
+                      setState(() {
+                        selectedMinutes = index;
+                      });
+                      _updateDuration();
+                    },
+                    selectionOverlay: Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                          bottom: BorderSide(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                    children: List<Widget>.generate(60, (index) {
+                      return Center(
+                        child: Text(
+                          index.toString().padLeft(2, '0'),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: selectedMinutes == index 
+                                ? AppTheme.primaryColor 
+                                : theme.colorScheme.onSurface,
+                            fontWeight: selectedMinutes == index 
+                                ? FontWeight.bold 
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Continue with the rest of the widgets...
 // Quick Stats Card Widget
 class QuickStatsCard extends StatelessWidget {
   final String title;
@@ -202,85 +555,85 @@ class GoalCard extends StatelessWidget {
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(AppTheme.radius16),
             border: Border.all(
-              color: goal.isCompleted
-                  ? Colors.green.withOpacity(0.3)
-                  : theme.colorScheme.onSurface.withOpacity(0.1),
+              color: goal.priorityColor.withOpacity(0.3),
               width: 1,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: onComplete,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: goal.isCompleted
-                        ? Colors.green
-                        : Colors.transparent,
-                    border: Border.all(
-                      color: goal.isCompleted
-                          ? Colors.green
-                          : theme.colorScheme.onSurface.withOpacity(0.3),
-                      width: 2,
-                    ),
-                  ),
-                  child: goal.isCompleted
-                      ? const Icon(
-                          Icons.check_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: AppTheme.spacing12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Icon(goal.categoryIcon, color: goal.priorityColor, size: 20),
+                  const SizedBox(width: AppTheme.spacing8),
+                  Expanded(
+                    child: Text(
                       goal.title,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w600,
-                        decoration: goal.isCompleted
-                            ? TextDecoration.lineThrough
-                            : null,
                       ),
                     ),
-                    if (goal.description != null)
-                      Text(
-                        goal.description!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                  if (goal.isOverdue)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spacing8,
+                        vertical: AppTheme.spacing4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppTheme.radius8),
+                      ),
+                      child: Text(
+                        'Overdue',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.red,
                         ),
                       ),
-                  ],
-                ),
-              ),
-              if (goal.dueDate != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.spacing8,
-                    vertical: AppTheme.spacing4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: goal.isToday
-                        ? AppTheme.primaryColor.withOpacity(0.1)
-                        : theme.colorScheme.onSurface.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radius8),
-                  ),
-                  child: Text(
-                    goal.isToday ? 'Today' : 'Due',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: goal.isToday
-                          ? AppTheme.primaryColor
-                          : theme.colorScheme.onSurface,
                     ),
+                ],
+              ),
+              if (goal.description != null) ...[
+                const SizedBox(height: AppTheme.spacing8),
+                Text(
+                  goal.description!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              if (goal.subTasks.isNotEmpty) ...[
+                const SizedBox(height: AppTheme.spacing12),
+                LinearProgressIndicator(
+                  value: goal.completionRate,
+                  backgroundColor: theme.colorScheme.onSurface.withOpacity(0.1),
+                  valueColor: AlwaysStoppedAnimation(goal.priorityColor),
+                ),
+                const SizedBox(height: AppTheme.spacing4),
+                Text(
+                  '${goal.subTasks.where((t) => t.isCompleted).length}/${goal.subTasks.length} subtasks completed',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.5),
                   ),
                 ),
+              ],
+              if (goal.tags.isNotEmpty) ...[
+                const SizedBox(height: AppTheme.spacing12),
+                Wrap(
+                  spacing: AppTheme.spacing4,
+                  children: goal.tags.take(3).map((tag) {
+                    return Chip(
+                      label: Text(tag),
+                      labelStyle: theme.textTheme.labelSmall,
+                      backgroundColor: theme.colorScheme.surfaceVariant,
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }).toList(),
+                ),
+              ],
             ],
           ),
         ),
@@ -289,8 +642,8 @@ class GoalCard extends StatelessWidget {
   }
 }
 
-// Enhanced Add Goal Sheet Widget
-// Enhanced Add Goal Sheet Widget (Devamı)
+// The rest of the widgets file continues below...
+// Enhanced Add Goal Sheet with Time Duration Picker
 class AddGoalSheet extends ConsumerStatefulWidget {
   const AddGoalSheet({super.key});
 
@@ -302,29 +655,17 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _notesController = TextEditingController();
-  final _estimatedMinutesController = TextEditingController();
-  final _subTaskControllers = <TextEditingController>[];
+  final _tagController = TextEditingController();
   
+  Duration _estimatedDuration = const Duration(minutes: 25); // Default 25 minutes
+  GoalPriority _priority = GoalPriority.medium;
+  GoalCategory _category = GoalCategory.personal;
   DateTime? _selectedDate;
   TimeOfDay? _reminderTime;
-  GoalCategory _selectedCategory = GoalCategory.personal;
-  GoalPriority _selectedPriority = GoalPriority.medium;
   RepeatType _repeatType = RepeatType.none;
-  List<String> _tags = [];
-  final _tagController = TextEditingController();
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _notesController.dispose();
-    _estimatedMinutesController.dispose();
-    _tagController.dispose();
-    for (var controller in _subTaskControllers) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
+  
+  final List<TextEditingController> _subTaskControllers = [];
+  final List<String> _tags = [];
 
   void _addSubTask() {
     setState(() {
@@ -340,42 +681,99 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
   }
 
   void _addTag() {
-    if (_tagController.text.isNotEmpty) {
+    final tag = _tagController.text.trim();
+    if (tag.isNotEmpty && !_tags.contains(tag)) {
       setState(() {
-        _tags.add(_tagController.text);
+        _tags.add(tag);
         _tagController.clear();
       });
     }
   }
 
+  void _showTimePicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: 300,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.radius24),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: AppTheme.spacing12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppTheme.spacing16),
+                child: Text(
+                  'Set Estimated Time',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing16),
+                  child: TimeDurationPicker(
+                    initialDuration: _estimatedDuration,
+                    onDurationChanged: (duration) {
+                      setState(() {
+                        _estimatedDuration = duration;
+                      });
+                    },
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppTheme.spacing16),
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radius12),
+                    ),
+                  ),
+                  child: const Text('Done'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _saveGoal() {
-    if (_titleController.text.isEmpty) {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a goal title')),
       );
       return;
     }
 
-    final subTasks = _subTaskControllers
-        .where((c) => c.text.isNotEmpty)
-        .map((c) => SubTask(
-              id: DateTime.now().millisecondsSinceEpoch.toString() + c.hashCode.toString(),
-              title: c.text,
-            ))
-        .toList();
-
     final newGoal = Goal(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _titleController.text,
-      description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+      title: title,
+      description: _descriptionController.text.trim(),
       createdAt: DateTime.now(),
       dueDate: _selectedDate,
-      category: _selectedCategory,
-      priority: _selectedPriority,
-      subTasks: subTasks,
+      category: _category,
+      priority: _priority,
+      estimatedMinutes: _estimatedDuration.inMinutes,
       repeatType: _repeatType,
-      tags: _tags,
-      notes: _notesController.text.isEmpty ? null : _notesController.text,
       reminderTime: _reminderTime != null && _selectedDate != null
           ? DateTime(
               _selectedDate!.year,
@@ -385,62 +783,75 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
               _reminderTime!.minute,
             )
           : null,
-      estimatedMinutes: int.tryParse(_estimatedMinutesController.text) ?? 0,
+      subTasks: _subTaskControllers.asMap().entries.map((entry) {
+        return SubTask(
+          id: 'sub_${entry.key}',
+          title: entry.value.text.trim(),
+        );
+      }).where((task) => task.title.isNotEmpty).toList(),
+      tags: _tags,
+      notes: _notesController.text.trim(),
     );
 
     ref.read(goalsProvider.notifier).addGoal(newGoal);
-    Navigator.pop(context);
     
+    // Set as selected goal for Special timer if it has estimated time
+    if (newGoal.estimatedMinutes > 0) {
+      ref.read(selectedGoalProvider.notifier).state = newGoal;
+    }
+    
+    Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Goal "${newGoal.title}" added successfully!'),
-        backgroundColor: Colors.green,
-      ),
+      const SnackBar(content: Text('Goal added successfully')),
     );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _notesController.dispose();
+    _tagController.dispose();
+    for (var controller in _subTaskControllers) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(24),
+          top: Radius.circular(AppTheme.radius24),
         ),
       ),
       child: Column(
         children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          
           // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.colorScheme.outline.withOpacity(0.2),
+                ),
+              ),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Create New Goal',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  'Add New Goal',
+                  style: theme.textTheme.titleLarge,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close_rounded),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -449,383 +860,363 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
           
           // Content
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title Field
-                  TextField(
-                    controller: _titleController,
-                    decoration: InputDecoration(
-                      labelText: 'Goal Title *',
-                      hintText: 'Enter your goal',
-                      prefixIcon: const Icon(Icons.flag_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: EdgeInsets.only(bottom: keyboardHeight),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Title
+                    TextField(
+                      controller: _titleController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: 'Goal Title',
+                        hintText: 'Enter your goal',
+                        prefixIcon: const Icon(Icons.flag_rounded),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Description Field
-                  TextField(
-                    controller: _descriptionController,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: 'Description',
-                      hintText: 'Add more details about your goal',
-                      prefixIcon: const Icon(Icons.description_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 16),
+                    
+                    // Description
+                    TextField(
+                      controller: _descriptionController,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: 'Description',
+                        hintText: 'Add more details',
+                        prefixIcon: const Icon(Icons.description_rounded),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Category and Priority Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Category',
-                              style: theme.textTheme.labelMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: theme.colorScheme.outline,
-                                ),
+                    const SizedBox(height: 16),
+                    
+                    // Priority and Category
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<GoalPriority>(
+                            value: _priority,
+                            decoration: InputDecoration(
+                              labelText: 'Priority',
+                              prefixIcon: const Icon(Icons.priority_high_rounded),
+                              border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: DropdownButton<GoalCategory>(
-                                value: _selectedCategory,
-                                isExpanded: true,
-                                underline: const SizedBox(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedCategory = value!;
-                                  });
-                                },
-                                items: GoalCategory.values.map((category) {
-                                  return DropdownMenuItem(
-                                    value: category,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Goal(
-                                            id: '',
-                                            title: '',
-                                            createdAt: DateTime.now(),
-                                            category: category,
-                                          ).categoryIcon,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(category.name.toUpperCase()),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Priority',
-                              style: theme.textTheme.labelMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: theme.colorScheme.outline,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: DropdownButton<GoalPriority>(
-                                value: _selectedPriority,
-                                isExpanded: true,
-                                underline: const SizedBox(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedPriority = value!;
-                                  });
-                                },
-                                items: GoalPriority.values.map((priority) {
-                                  return DropdownMenuItem(
-                                    value: priority,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 12,
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            color: Goal(
-                                              id: '',
-                                              title: '',
-                                              createdAt: DateTime.now(),
-                                              priority: priority,
-                                            ).priorityColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(priority.name.toUpperCase()),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Due Date and Time
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ListTile(
-                          onTap: () async {
-                            final date = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime.now(),
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime.now().add(const Duration(days: 365)),
-                            );
-                            if (date != null) {
-                              setState(() {
-                                _selectedDate = date;
-                              });
-                            }
-                          },
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: theme.colorScheme.outline),
-                          ),
-                          leading: const Icon(Icons.calendar_today_rounded),
-                          title: Text(
-                            _selectedDate == null
-                                ? 'Set Due Date'
-                                : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ListTile(
-                          onTap: () async {
-                            final time = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (time != null) {
-                              setState(() {
-                                _reminderTime = time;
-                              });
-                            }
-                          },
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: theme.colorScheme.outline),
-                          ),
-                          leading: const Icon(Icons.alarm_rounded),
-                          title: Text(
-                            _reminderTime == null
-                                ? 'Set Reminder'
-                                : _reminderTime!.format(context),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Repeat Type
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Repeat',
-                        style: theme.textTheme.labelMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        children: RepeatType.values.map((type) {
-                          final isSelected = _repeatType == type;
-                          return ChoiceChip(
-                            label: Text(type.name.toUpperCase()),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _repeatType = type;
-                              });
+                            items: GoalPriority.values.map((priority) {
+                              return DropdownMenuItem(
+                                value: priority,
+                                child: Text(priority.name.toUpperCase()),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  _priority = value;
+                                });
+                              }
                             },
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Estimated Time
-                  TextField(
-                    controller: _estimatedMinutesController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Estimated Time (minutes)',
-                      hintText: 'How long will this take?',
-                      prefixIcon: const Icon(Icons.timer_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<GoalCategory>(
+                            value: _category,
+                            decoration: InputDecoration(
+                              labelText: 'Category',
+                              prefixIcon: const Icon(Icons.category_rounded),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: GoalCategory.values.map((category) {
+                              return DropdownMenuItem(
+                                value: category,
+                                child: Text(category.name.toUpperCase()),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  _category = value;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Sub Tasks
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Sub Tasks',
-                            style: theme.textTheme.labelMedium,
-                          ),
-                          TextButton.icon(
-                            onPressed: _addSubTask,
-                            icon: const Icon(Icons.add, size: 20),
-                            label: const Text('Add'),
-                          ),
-                        ],
-                      ),
-                      ..._subTaskControllers.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final controller = entry.value;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: controller,
-                                  decoration: InputDecoration(
-                                    hintText: 'Sub task ${index + 1}',
-                                    prefixIcon: const Icon(Icons.check_circle_outline, size: 20),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline),
-                                onPressed: () => _removeSubTask(index),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Tags
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tags',
-                        style: theme.textTheme.labelMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _tagController,
-                              decoration: InputDecoration(
-                                hintText: 'Add a tag',
-                                prefixIcon: const Icon(Icons.label_outline),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                              ),
-                              onSubmitted: (_) => _addTag(),
+                    const SizedBox(height: 16),
+                    
+                    // Due Date and Time
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ListTile(
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: DateTime.now(),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+                              if (date != null) {
+                                setState(() {
+                                  _selectedDate = date;
+                                });
+                              }
+                            },
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: theme.colorScheme.outline),
+                            ),
+                            leading: const Icon(Icons.calendar_today_rounded),
+                            title: Text(
+                              _selectedDate == null
+                                  ? 'Set Due Date'
+                                  : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: _addTag,
-                            icon: const Icon(Icons.add_circle),
-                            color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ListTile(
+                            onTap: () async {
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.now(),
+                              );
+                              if (time != null) {
+                                setState(() {
+                                  _reminderTime = time;
+                                });
+                              }
+                            },
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: theme.colorScheme.outline),
+                            ),
+                            leading: const Icon(Icons.alarm_rounded),
+                            title: Text(
+                              _reminderTime == null
+                                  ? 'Set Reminder'
+                                  : _reminderTime!.format(context),
+                            ),
                           ),
-                        ],
-                      ),
-                      if (_tags.isNotEmpty) ...[
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Repeat Type
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Repeat',
+                          style: theme.textTheme.labelMedium,
+                        ),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
-                          children: _tags.map((tag) {
-                            return Chip(
-                              label: Text(tag),
-                              onDeleted: () {
+                          children: RepeatType.values.map((type) {
+                            final isSelected = _repeatType == type;
+                            return ChoiceChip(
+                              label: Text(type.name.toUpperCase()),
+                              selected: isSelected,
+                              onSelected: (selected) {
                                 setState(() {
-                                  _tags.remove(tag);
+                                  _repeatType = type;
                                 });
                               },
                             );
                           }).toList(),
                         ),
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Notes
-                  TextField(
-                    controller: _notesController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: 'Notes',
-                      hintText: 'Additional notes or thoughts',
-                      prefixIcon: const Icon(Icons.note_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Estimated Time with Time Picker
+                    GestureDetector(
+                      onTap: () => _showTimePicker(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: theme.colorScheme.outline),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.timer_rounded,
+                              color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Estimated Time',
+                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _estimatedDuration.inMinutes == 0
+                                        ? 'Tap to set duration'
+                                        : '${_estimatedDuration.inHours}h ${_estimatedDuration.inMinutes.remainder(60)}m',
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.edit_rounded,
+                              color: theme.colorScheme.primary,
+                              size: 20,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                    const SizedBox(height: 16),
+                    
+                    // Sub Tasks
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Sub Tasks',
+                              style: theme.textTheme.labelMedium,
+                            ),
+                            TextButton.icon(
+                              onPressed: _addSubTask,
+                              icon: const Icon(Icons.add, size: 20),
+                              label: const Text('Add'),
+                            ),
+                          ],
+                        ),
+                        ..._subTaskControllers.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final controller = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: controller,
+                                    decoration: InputDecoration(
+                                      hintText: 'Sub task ${index + 1}',
+                                      prefixIcon: const Icon(Icons.check_circle_outline, size: 20),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                  onPressed: () => _removeSubTask(index),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Tags
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tags',
+                          style: theme.textTheme.labelMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _tagController,
+                                decoration: InputDecoration(
+                                  hintText: 'Add a tag',
+                                  prefixIcon: const Icon(Icons.label_outline),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                onSubmitted: (_) => _addTag(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: _addTag,
+                              icon: const Icon(Icons.add_circle),
+                              color: theme.colorScheme.primary,
+                            ),
+                          ],
+                        ),
+                        if (_tags.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: _tags.map((tag) {
+                              return Chip(
+                                label: Text(tag),
+                                onDeleted: () {
+                                  setState(() {
+                                    _tags.remove(tag);
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Notes
+                    TextField(
+                      controller: _notesController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Notes',
+                        hintText: 'Additional notes or thoughts',
+                        prefixIcon: const Icon(Icons.note_rounded),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
           ),
@@ -886,7 +1277,7 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
   }
 }
 
-// Diğer widget'lar (değişmemiş)
+// DiÄŸer widget'lar (deÄŸiÅŸmemiÅŸ)
 class SettingsTile extends StatelessWidget {
   final String title;
   final String? subtitle;

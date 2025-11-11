@@ -13,6 +13,7 @@ class TimerState {
   final SessionType sessionType;
   final int todaysSessions;
   final int currentStreak;
+  final bool isSpecialSession;
 
   TimerState({
     required this.targetDuration,
@@ -24,6 +25,7 @@ class TimerState {
     required this.sessionType,
     required this.todaysSessions,
     required this.currentStreak,
+    this.isSpecialSession = false,
   });
 
   factory TimerState.initial() {
@@ -37,6 +39,7 @@ class TimerState {
       sessionType: SessionType.focus,
       todaysSessions: 0,
       currentStreak: 0,
+      isSpecialSession: false,
     );
   }
 
@@ -50,6 +53,7 @@ class TimerState {
     SessionType? sessionType,
     int? todaysSessions,
     int? currentStreak,
+    bool? isSpecialSession,
   }) {
     return TimerState(
       targetDuration: targetDuration ?? this.targetDuration,
@@ -61,6 +65,7 @@ class TimerState {
       sessionType: sessionType ?? this.sessionType,
       todaysSessions: todaysSessions ?? this.todaysSessions,
       currentStreak: currentStreak ?? this.currentStreak,
+      isSpecialSession: isSpecialSession ?? this.isSpecialSession,
     );
   }
 }

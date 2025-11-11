@@ -3,15 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 
-// Timer Provider
+// Selected Goal Provider for Special Timer
+final selectedGoalProvider = StateProvider<Goal?>((ref) => null);
+
+// Timer Provider with Enhanced Special Session Support
 final timerProvider = StateNotifierProvider<TimerNotifier, TimerState>((ref) {
-  return TimerNotifier();
+  return TimerNotifier(ref);
 });
 
 class TimerNotifier extends StateNotifier<TimerState> {
   Timer? _timer;
+  final Ref ref;
   
-  TimerNotifier() : super(TimerState.initial());
+  TimerNotifier(this.ref) : super(TimerState.initial());
   
   void start() {
     state = state.copyWith(isRunning: true, isPaused: false);
@@ -30,7 +34,33 @@ class TimerNotifier extends StateNotifier<TimerState> {
   
   void reset() {
     _timer?.cancel();
-    state = TimerState.initial();
+    // Keep the current session type but reset the timer
+    Duration duration;
+    if (state.isSpecialSession) {
+      final selectedGoal = ref.read(selectedGoalProvider);
+      duration = Duration(minutes: selectedGoal?.estimatedMinutes ?? 25);
+    } else {
+      switch (state.sessionType) {
+        case SessionType.focus:
+          duration = const Duration(minutes: 25);
+          break;
+        case SessionType.shortBreak:
+          duration = const Duration(minutes: 5);
+          break;
+        case SessionType.longBreak:
+          duration = const Duration(minutes: 15);
+          break;
+      }
+    }
+    
+    state = state.copyWith(
+      targetDuration: duration,
+      remaining: duration,
+      isRunning: false,
+      isPaused: false,
+      isCompleted: false,
+      progress: 0.0,
+    );
   }
   
   void skip() {
@@ -57,7 +87,32 @@ class TimerNotifier extends StateNotifier<TimerState> {
       targetDuration: duration,
       remaining: duration,
       progress: 0.0,
+      isSpecialSession: false,  // Clear special session when changing type
     );
+  }
+  
+  void setSpecialSession() {
+    final selectedGoal = ref.read(selectedGoalProvider);
+    if (selectedGoal != null && selectedGoal.estimatedMinutes > 0) {
+      final duration = Duration(minutes: selectedGoal.estimatedMinutes);
+      state = state.copyWith(
+        targetDuration: duration,
+        remaining: duration,
+        progress: 0.0,
+        isSpecialSession: true,
+        sessionType: SessionType.focus,  // Special sessions are focus sessions
+      );
+    } else {
+      // If no goal is selected or has no estimated time, use default focus duration
+      final duration = const Duration(minutes: 25);
+      state = state.copyWith(
+        targetDuration: duration,
+        remaining: duration,
+        progress: 0.0,
+        isSpecialSession: true,
+        sessionType: SessionType.focus,
+      );
+    }
   }
   
   void _startTimer() {
@@ -77,6 +132,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
           isRunning: false,
           isCompleted: true,
           progress: 1.0,
+          todaysSessions: state.todaysSessions + 1,
         );
       }
     });

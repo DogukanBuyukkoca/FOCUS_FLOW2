@@ -1,348 +1,213 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
-
 import 'models.dart';
-import 'services.dart';
 
+// Selected Goal Provider for Special Timer
+final selectedGoalProvider = StateProvider<Goal?>((ref) => null);
+
+// Timer Provider
 final timerProvider = StateNotifierProvider<TimerNotifier, TimerState>((ref) {
   return TimerNotifier(ref);
 });
 
 class TimerNotifier extends StateNotifier<TimerState> {
-  final Ref _ref;
   Timer? _timer;
-  final Stopwatch _stopwatch = Stopwatch();
-  DateTime? _sessionStartTime;
+  final Ref ref;
   
-  TimerNotifier(this._ref) : super(TimerState.initial()) {
-    _loadUserPreferences();
-  }
-  
-  void _loadUserPreferences() async {
-    final prefs = await StorageService.getUserPreferences();
-    state = state.copyWith(
-      targetDuration: Duration(minutes: prefs.defaultFocusMinutes),
-      sessionType: SessionType.focus,
-      todaysSessions: await StorageService.getTodaySessionCount(),
-      currentStreak: await StorageService.getCurrentStreak(),
-    );
-  }
+  TimerNotifier(this.ref) : super(TimerState.initial());
   
   void start() {
-    if (state.isRunning) return;
-    
-    _sessionStartTime = DateTime.now();
-    _stopwatch.start();
-    
-    // Schedule completion notification
-    NotificationService.scheduleSessionComplete(state.targetDuration);
-    
-    // Play start sound
-    AudioService.playStartSound();
-    
-    // Haptic feedback
-    HapticFeedback.mediumImpact();
-    
-    state = state.copyWith(
-      isRunning: true,
-      isPaused: false,
-      isCompleted: false,
-    );
-    
+    state = state.copyWith(isRunning: true, isPaused: false);
     _startTimer();
   }
   
   void pause() {
-    if (!state.isRunning) return;
-    
-    _stopwatch.stop();
     _timer?.cancel();
-    
-    // Cancel scheduled notification
-    NotificationService.cancelScheduledNotifications();
-    
-    // Play pause sound
-    AudioService.playPauseSound();
-    
-    // Haptic feedback
-    HapticFeedback.lightImpact();
-    
-    state = state.copyWith(
-      isRunning: false,
-      isPaused: true,
-    );
+    state = state.copyWith(isRunning: false, isPaused: true);
   }
   
   void resume() {
-    if (!state.isPaused) return;
-    
-    _stopwatch.start();
-    
-    // Reschedule notification for remaining time
-    NotificationService.scheduleSessionComplete(state.remaining);
-    
-    // Play resume sound
-    AudioService.playResumeSound();
-    
-    // Haptic feedback
-    HapticFeedback.lightImpact();
-    
-    state = state.copyWith(
-      isRunning: true,
-      isPaused: false,
-    );
-    
+    state = state.copyWith(isRunning: true, isPaused: false);
     _startTimer();
   }
   
   void reset() {
     _timer?.cancel();
-    _stopwatch.reset();
-    _sessionStartTime = null;
-    
-    // Cancel any scheduled notifications
-    NotificationService.cancelScheduledNotifications();
-    
-    // Haptic feedback
-    HapticFeedback.mediumImpact();
+    // Keep the current session type but reset the timer
+    Duration duration;
+    if (state.isSpecialSession) {
+      final selectedGoal = ref.read(selectedGoalProvider);
+      duration = Duration(minutes: selectedGoal?.estimatedMinutes ?? 25);
+    } else {
+      switch (state.sessionType) {
+        case SessionType.focus:
+          duration = const Duration(minutes: 25);
+          break;
+        case SessionType.shortBreak:
+          duration = const Duration(minutes: 5);
+          break;
+        case SessionType.longBreak:
+          duration = const Duration(minutes: 15);
+          break;
+      }
+    }
     
     state = state.copyWith(
+      targetDuration: duration,
+      remaining: duration,
       isRunning: false,
       isPaused: false,
       isCompleted: false,
-      remaining: state.targetDuration,
       progress: 0.0,
     );
   }
   
   void skip() {
-    if (!state.isRunning) return;
-    
-    // Haptic feedback
-    HapticFeedback.heavyImpact();
-    
-    _completeSession(wasSkipped: true);
+    _timer?.cancel();
+    state = state.copyWith(isRunning: false, isCompleted: true);
   }
   
   void changeSessionType(SessionType type) {
-    if (state.isRunning || state.isPaused) return;
-    
-    Duration targetDuration;
+    Duration duration;
     switch (type) {
       case SessionType.focus:
-        targetDuration = const Duration(minutes: 25);
+        duration = const Duration(minutes: 25);
         break;
       case SessionType.shortBreak:
-        targetDuration = const Duration(minutes: 5);
+        duration = const Duration(minutes: 5);
         break;
       case SessionType.longBreak:
-        targetDuration = const Duration(minutes: 15);
+        duration = const Duration(minutes: 15);
         break;
     }
     
     state = state.copyWith(
       sessionType: type,
-      targetDuration: targetDuration,
-      remaining: targetDuration,
+      targetDuration: duration,
+      remaining: duration,
       progress: 0.0,
+      isSpecialSession: false,  // Clear special session when changing type
     );
+  }
+  
+  void setSpecialSession() {
+    final selectedGoal = ref.read(selectedGoalProvider);
+    if (selectedGoal != null && selectedGoal.estimatedMinutes > 0) {
+      final duration = Duration(minutes: selectedGoal.estimatedMinutes);
+      state = state.copyWith(
+        targetDuration: duration,
+        remaining: duration,
+        progress: 0.0,
+        isSpecialSession: true,
+        sessionType: SessionType.focus,  // Special sessions are focus sessions
+      );
+    } else {
+      // If no goal is selected or has no estimated time, use default focus duration
+      final duration = const Duration(minutes: 25);
+      state = state.copyWith(
+        targetDuration: duration,
+        remaining: duration,
+        progress: 0.0,
+        isSpecialSession: true,
+        sessionType: SessionType.focus,
+      );
+    }
   }
   
   void _startTimer() {
     _timer?.cancel();
-    
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      _updateTimerState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (state.remaining.inSeconds > 0) {
+        final newRemaining = Duration(seconds: state.remaining.inSeconds - 1);
+        final progress = 1 - (newRemaining.inSeconds / state.targetDuration.inSeconds);
+        
+        state = state.copyWith(
+          remaining: newRemaining,
+          progress: progress,
+        );
+      } else {
+        timer.cancel();
+        state = state.copyWith(
+          isRunning: false,
+          isCompleted: true,
+          progress: 1.0,
+          todaysSessions: state.todaysSessions + 1,
+        );
+      }
     });
   }
-  
-  void _updateTimerState() {
-    if (!state.isRunning) {
-      _timer?.cancel();
-      return;
-    }
-    
-    final elapsed = _stopwatch.elapsed;
-    final remaining = state.targetDuration - elapsed;
-    
-    if (remaining <= Duration.zero) {
-      _completeSession();
-      return;
-    }
-    
-    final progress = elapsed.inMilliseconds / state.targetDuration.inMilliseconds;
-    
-    state = state.copyWith(
-      remaining: remaining,
-      progress: progress.clamp(0.0, 1.0),
-    );
-    
-    // Save checkpoint every 5 seconds
-    if (elapsed.inSeconds % 5 == 0) {
-      _saveCheckpoint();
-    }
-  }
-  
-  void _completeSession({bool wasSkipped = false}) {
-    _timer?.cancel();
-    _stopwatch.stop();
-    
-    if (!wasSkipped) {
-      // Play completion sound
-      AudioService.playCompletionSound();
-      
-      // Show completion notification
-      NotificationService.showSessionComplete(state.sessionType);
-      
-      // Heavy haptic for completion
-      HapticFeedback.heavyImpact();
-    }
-    
-    // Save session to storage
-    if (_sessionStartTime != null && state.sessionType == SessionType.focus) {
-      StorageService.saveSession(
-        startTime: _sessionStartTime!,
-        endTime: DateTime.now(),
-        sessionType: state.sessionType,
-        wasCompleted: !wasSkipped,
-      );
-      
-      // Update stats
-      _updateStats();
-    }
-    
-    // Reset timer
-    _stopwatch.reset();
-    _sessionStartTime = null;
-    
-    state = state.copyWith(
-      isRunning: false,
-      isPaused: false,
-      isCompleted: true,
-      remaining: Duration.zero,
-      progress: 1.0,
-    );
-    
-    // Auto-transition to next session type after a delay
-    if (!wasSkipped) {
-      Future.delayed(const Duration(seconds: 2), () {
-        _autoTransitionToNext();
-      });
-    }
-  }
-  
-  void _autoTransitionToNext() {
-    final userPrefs = StorageService.getCachedPreferences();
-    if (!userPrefs.autoStartNext) return;
-    
-    SessionType nextType;
-    final completedSessions = state.todaysSessions;
-    
-    if (state.sessionType == SessionType.focus) {
-      // After focus, take a break
-      if (completedSessions % 4 == 0) {
-        nextType = SessionType.longBreak;
-      } else {
-        nextType = SessionType.shortBreak;
-      }
-    } else {
-      // After break, back to focus
-      nextType = SessionType.focus;
-    }
-    
-    changeSessionType(nextType);
-    
-    // Auto-start if enabled
-    if (userPrefs.autoStartBreaks && state.sessionType != SessionType.focus) {
-      Future.delayed(const Duration(seconds: 3), () {
-        start();
-      });
-    }
-  }
-  
-  void _updateStats() async {
-    final todaysSessions = await StorageService.getTodaySessionCount();
-    final currentStreak = await StorageService.getCurrentStreak();
-    
-    state = state.copyWith(
-      todaysSessions: todaysSessions,
-      currentStreak: currentStreak,
-    );
-  }
-  
-  void _saveCheckpoint() {
-    if (_sessionStartTime == null) return;
-    
-    StorageService.saveCheckpoint(
-      sessionStart: _sessionStartTime!,
-      elapsed: _stopwatch.elapsed,
-      sessionType: state.sessionType,
-    );
-  }
-  
-  Future<void> restoreFromCheckpoint() async {
-  final Map<String, dynamic>? checkpoint = await StorageService.getLastCheckpoint();
-  if (checkpoint == null) return;
-
-  // savedAt: ISO string veya epoch ms olabilir
-  final dynamic rawSavedAt = checkpoint['savedAt'];
-  DateTime? savedAt;
-  if (rawSavedAt is int) {
-    savedAt = DateTime.fromMillisecondsSinceEpoch(rawSavedAt);
-  } else if (rawSavedAt is String) {
-    savedAt = DateTime.tryParse(rawSavedAt);
-  }
-
-  if (savedAt == null) {
-    // Bozuk kayıt: temizle ve çık
-    await StorageService.clearCheckpoint();
-    return;
-  }
-
-  // elapsed: ms cinsinden int varsayıyoruz (kendi kaydetme formatına göre değiştir)
-  final int? elapsedMs = (checkpoint['elapsedMs'] ?? checkpoint['elapsed']) as int?;
-  if (elapsedMs == null) {
-    await StorageService.clearCheckpoint();
-    return;
-  }
-
-  final now = DateTime.now();
-  final timeSinceCheckpoint = now.difference(savedAt);
-
-  // Sadece 1 saatten küçükse geri yükle
-  if (timeSinceCheckpoint.inHours >= 1) {
-    await StorageService.clearCheckpoint();
-    return;
-  }
-
-  final totalElapsed = Duration(milliseconds: elapsedMs) + timeSinceCheckpoint;
-  final remaining = state.targetDuration - totalElapsed;
-
-  if (remaining > Duration.zero) {
-    final progress = (totalElapsed.inMilliseconds / state.targetDuration.inMilliseconds)
-        .clamp(0.0, 1.0);
-
-    state = state.copyWith(
-      remaining: remaining,
-      progress: progress,
-      isPaused: true,
-    );
-
-    _stopwatch.reset();
-    // Stopwatch’a doğrudan elapsed set edemeyiz; paused bırakıyoruz
-    // veya kendi elapsed’ımızı state içinde takip ediyoruz.
-  } else {
-    // Süre bitmişse checkpoint’i temizlemek mantıklı
-    await StorageService.clearCheckpoint();
-  }
-}
-
   
   @override
   void dispose() {
     _timer?.cancel();
-    _stopwatch.stop();
     super.dispose();
+  }
+}
+
+// Extended TimerState with Special Session flag
+class TimerState {
+  final Duration targetDuration;
+  final Duration remaining;
+  final bool isRunning;
+  final bool isPaused;
+  final bool isCompleted;
+  final double progress;
+  final SessionType sessionType;
+  final int todaysSessions;
+  final int currentStreak;
+  final bool isSpecialSession;  // New field for special session
+
+  TimerState({
+    required this.targetDuration,
+    required this.remaining,
+    required this.isRunning,
+    required this.isPaused,
+    required this.isCompleted,
+    required this.progress,
+    required this.sessionType,
+    required this.todaysSessions,
+    required this.currentStreak,
+    this.isSpecialSession = false,
+  });
+
+  factory TimerState.initial() {
+    return TimerState(
+      targetDuration: const Duration(minutes: 25),
+      remaining: const Duration(minutes: 25),
+      isRunning: false,
+      isPaused: false,
+      isCompleted: false,
+      progress: 0.0,
+      sessionType: SessionType.focus,
+      todaysSessions: 0,
+      currentStreak: 0,
+      isSpecialSession: false,
+    );
+  }
+
+  TimerState copyWith({
+    Duration? targetDuration,
+    Duration? remaining,
+    bool? isRunning,
+    bool? isPaused,
+    bool? isCompleted,
+    double? progress,
+    SessionType? sessionType,
+    int? todaysSessions,
+    int? currentStreak,
+    bool? isSpecialSession,
+  }) {
+    return TimerState(
+      targetDuration: targetDuration ?? this.targetDuration,
+      remaining: remaining ?? this.remaining,
+      isRunning: isRunning ?? this.isRunning,
+      isPaused: isPaused ?? this.isPaused,
+      isCompleted: isCompleted ?? this.isCompleted,
+      progress: progress ?? this.progress,
+      sessionType: sessionType ?? this.sessionType,
+      todaysSessions: todaysSessions ?? this.todaysSessions,
+      currentStreak: currentStreak ?? this.currentStreak,
+      isSpecialSession: isSpecialSession ?? this.isSpecialSession,
+    );
   }
 }

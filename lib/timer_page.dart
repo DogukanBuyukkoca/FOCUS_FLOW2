@@ -5,8 +5,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:glass_kit/glass_kit.dart';
 import 'app_theme.dart';
-import 'timer_provider.dart';
 import 'widgets.dart';
+import 'providers.dart';
+import 'models.dart';
 
 class TimerPage extends ConsumerStatefulWidget {
   const TimerPage({super.key});
@@ -65,8 +66,12 @@ class _TimerPageState extends ConsumerState<TimerPage>
   }
 
   String _formatTime(Duration duration) {
+    final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (hours > 0) {
+      return '$hours:$minutes:$seconds';
+    }
     return '$minutes:$seconds';
   }
 
@@ -139,12 +144,18 @@ class _TimerPageState extends ConsumerState<TimerPage>
                   padding: const EdgeInsets.all(AppTheme.spacing16),
                   child: Column(
                     children: [
-                      // Session Type Selector
-                      SessionTypeSelector(
+                      // Enhanced Session Type Selector with Special button
+                      EnhancedSessionTypeSelector(
                         selectedType: timerState.sessionType,
+                        isSpecialSelected: timerState.isSpecialSession,
                         onTypeChanged: (type) {
                           if (!timerState.isRunning) {
                             ref.read(timerProvider.notifier).changeSessionType(type);
+                          }
+                        },
+                        onSpecialPressed: () {
+                          if (!timerState.isRunning) {
+                            ref.read(timerProvider.notifier).setSpecialSession();
                           }
                         },
                       ).animate().fadeIn(delay: 100.ms),
@@ -220,21 +231,22 @@ class _TimerPageState extends ConsumerState<TimerPage>
                               children: [
                                 Text(
                                   _formatTime(timerState.remaining),
-                                  style: theme.textTheme.displayLarge?.copyWith(
-                                    fontSize: actualTimerSize * 0.15,
+                                  style: theme.textTheme.displayMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 2,
                                   ),
                                 ),
                                 const SizedBox(height: AppTheme.spacing8),
                                 Text(
-                                  timerState.isRunning
-                                      ? 'Stay Focused'
-                                      : timerState.isPaused
-                                          ? 'Paused'
-                                          : 'Ready to Focus',
+                                  timerState.isSpecialSession 
+                                      ? 'Special Focus' 
+                                      : timerState.sessionType == SessionType.focus
+                                          ? 'Focus Time'
+                                          : timerState.sessionType == SessionType.shortBreak
+                                              ? 'Short Break'
+                                              : 'Long Break',
                                   style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: theme.textTheme.bodyLarge?.color?.withOpacity(0.7),
+                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
                                   ),
                                 ),
                               ],
@@ -316,71 +328,70 @@ class _TimerPageState extends ConsumerState<TimerPage>
                       const SizedBox(height: AppTheme.spacing16),
                       
                       // Motivational Quote
-                      // Motivational Quote - FIX: Overflow sorunu düzeltildi
-LayoutBuilder(
-  builder: (context, constraints) {
-    // Ekran genişliğine göre responsive width hesapla
-    final containerWidth = constraints.maxWidth - (AppTheme.spacing16 * 2);
-    
-    return Container(
-      width: containerWidth,
-      margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing8),
-      child: GlassContainer(
-        width: containerWidth,
-        height: 120, // Biraz daha küçük yükseklik
-        padding: const EdgeInsets.all(AppTheme.spacing12), // Padding'i küçült
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.primaryColor.withOpacity(0.1),
-            AppTheme.secondaryColor.withOpacity(0.1),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderGradient: LinearGradient(
-          colors: [
-            AppTheme.primaryColor.withOpacity(0.2),
-            AppTheme.secondaryColor.withOpacity(0.2),
-          ],
-        ),
-        blur: 10,
-        borderRadius: BorderRadius.circular(AppTheme.radius16),
-        elevation: 0,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.format_quote_rounded,
-              color: AppTheme.primaryColor,
-              size: 20, // Icon boyutunu küçült
-            ),
-            const SizedBox(height: AppTheme.spacing4),
-            Flexible( // Flexible ile text overflow'u önle
-              child: Text(
-                '"The secret to getting ahead is getting started."',
-                style: theme.textTheme.bodyMedium?.copyWith( // bodyLarge → bodyMedium
-                  fontStyle: FontStyle.italic,
-                  fontSize: 13, // Font boyutunu küçült
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2, // 2 satır yeterli
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacing4),
-            Text(
-              '- Mark Twain',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: 11, // Küçük font
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  },
-).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          // Responsive width calculation
+                          final containerWidth = constraints.maxWidth - (AppTheme.spacing16 * 2);
+                          
+                          return Container(
+                            width: containerWidth,
+                            margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing8),
+                            child: GlassContainer(
+                              width: containerWidth,
+                              height: 120,
+                              padding: const EdgeInsets.all(AppTheme.spacing12),
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.primaryColor.withOpacity(0.1),
+                                  AppTheme.secondaryColor.withOpacity(0.1),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderGradient: LinearGradient(
+                                colors: [
+                                  AppTheme.primaryColor.withOpacity(0.2),
+                                  AppTheme.secondaryColor.withOpacity(0.2),
+                                ],
+                              ),
+                              blur: 10,
+                              borderRadius: BorderRadius.circular(AppTheme.radius16),
+                              elevation: 0,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.format_quote_rounded,
+                                    color: AppTheme.primaryColor,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(height: AppTheme.spacing4),
+                                  Flexible(
+                                    child: Text(
+                                      '"The secret to getting ahead is getting started."',
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        fontStyle: FontStyle.italic,
+                                        fontSize: 13,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppTheme.spacing4),
+                                  Text(
+                                    '- Mark Twain',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontSize: 11,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2),
                     ],
                   ),
                 ),

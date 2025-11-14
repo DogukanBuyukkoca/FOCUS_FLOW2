@@ -644,6 +644,7 @@ class GoalCard extends StatelessWidget {
 
 // The rest of the widgets file continues below...
 // Enhanced Add Goal Sheet with Time Duration Picker
+// Enhanced Add Goal Sheet with Time Duration Picker
 class AddGoalSheet extends ConsumerStatefulWidget {
   const AddGoalSheet({super.key});
 
@@ -755,7 +756,7 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
     );
   }
 
-  void _saveGoal() {
+  Future<void> _saveGoal() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -793,7 +794,7 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
       notes: _notesController.text.trim(),
     );
 
-    ref.read(goalsProvider.notifier).addGoal(newGoal);
+    await ref.read(goalsProvider.notifier).addGoal(newGoal);
     
     // Set as selected goal for Special timer if it has estimated time
     if (newGoal.estimatedMinutes > 0) {
@@ -835,7 +836,7 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(

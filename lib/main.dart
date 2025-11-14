@@ -8,6 +8,7 @@ import 'app_theme.dart';
 import 'app_router.dart';
 import 'services.dart';
 import 'providers.dart';
+import 'storage_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -33,6 +34,7 @@ void main() async {
   
   // Initialize Hive
   await Hive.initFlutter();
+  await StorageServices.initialize();
   await StorageService.init();
   
   // Initialize Notifications

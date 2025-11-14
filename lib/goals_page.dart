@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:glass_kit/glass_kit.dart';
 import 'app_theme.dart';
+import 'edit_goaL_sheet.dart';
 import 'providers.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -57,7 +58,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // App Bar with Search - FIX: Overflow önlendi
+              // App Bar with Search - FIX: Overflow Ã¶nlendi
               SliverAppBar(
                 floating: true,
                 backgroundColor: Colors.transparent,
@@ -71,7 +72,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Expanded( // FIX: Title için Expanded ekledik
+                            Expanded( // FIX: Title iÃ§in Expanded ekledik
                               child: Text(
                                 'Goals',
                                 style: theme.textTheme.headlineLarge,
@@ -100,10 +101,10 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
 
                         //const SizedBox(height: AppTheme.spacing4),
 
-                        // Search Bar - FIX: Responsive genişlik
+                        // Search Bar - FIX: Responsive geniÅŸlik
                         // Expanded(
                         //   child: Container(
-                        //     width: double.infinity, // FIX: Tam genişlik
+                        //     width: double.infinity, // FIX: Tam geniÅŸlik
                         //     height: 100,
                         //     decoration: BoxDecoration(
                         //       color: theme.colorScheme.surface,
@@ -143,7 +144,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                 ),
               ),
               
-              // Filter Chips - FIX: Scroll overflow önlendi
+              // Filter Chips - FIX: Scroll overflow Ã¶nlendi
               SliverToBoxAdapter(
                 child: Container(
                   height: 50,
@@ -151,7 +152,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                   child: SingleChildScrollView( // FIX: ScrollView eklendi
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    child: Row( // FIX: ListView yerine Row kullandık
+                    child: Row( // FIX: ListView yerine Row kullandÄ±k
                       children: [
                         _buildFilterChip(
                           label: 'All',
@@ -189,8 +190,8 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                   child: LayoutBuilder( // FIX: LayoutBuilder eklendi
                     builder: (context, constraints) {
                       return GlassContainer.clearGlass(
-                        width: constraints.maxWidth, // FIX: Responsive genişlik
-                        height: 120, // FIX: Daha kompakt yükseklik
+                        width: constraints.maxWidth, // FIX: Responsive geniÅŸlik
+                        height: 120, // FIX: Daha kompakt yÃ¼kseklik
                         padding: const EdgeInsets.all(AppTheme.spacing16),
                         gradient: LinearGradient(
                           colors: [
@@ -340,7 +341,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
             const SizedBox(width: AppTheme.spacing4),
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacing4, // FIX: Padding küçültüldü
+                horizontal: AppTheme.spacing4, // FIX: Padding kÃ¼Ã§Ã¼ltÃ¼ldÃ¼
                 vertical: AppTheme.spacing4,
               ),
               decoration: BoxDecoration(
@@ -354,7 +355,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: isSelected ? Colors.white : AppTheme.primaryColor,
                   fontWeight: FontWeight.bold,
-                  fontSize: 10, // FIX: Font boyutu küçültüldü
+                  fontSize: 10, // FIX: Font boyutu kÃ¼Ã§Ã¼ltÃ¼ldÃ¼
                 ),
               ),
             ),
@@ -399,11 +400,11 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
     return Column(
       mainAxisSize: MainAxisSize.min, // FIX: Minimum boyut
       children: [
-        Icon(icon, color: color, size: 20), // FIX: Icon boyutu küçültüldü
+        Icon(icon, color: color, size: 20), // FIX: Icon boyutu kÃ¼Ã§Ã¼ltÃ¼ldÃ¼
         const SizedBox(height: AppTheme.spacing4),
         Text(
           value,
-          style: theme.textTheme.titleLarge?.copyWith( // FIX: headlineSmall → titleLarge
+          style: theme.textTheme.titleLarge?.copyWith( // FIX: headlineSmall â†’ titleLarge
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -414,10 +415,10 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
             title,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withOpacity(0.6),
-              fontSize: 11, // FIX: Font boyutu küçültüldü
+              fontSize: 11, // FIX: Font boyutu kÃ¼Ã§Ã¼ltÃ¼ldÃ¼
             ),
             textAlign: TextAlign.center,
-            maxLines: 2, // FIX: Maksimum 2 satır
+            maxLines: 2, // FIX: Maksimum 2 satÄ±r
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -426,7 +427,12 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
   }
   
   void _showGoalDetails(Goal goal) {
-    // Show goal details sheet
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => EditGoalSheet(goal: goal),
+    );
   }
   
   void _showSortOptions() {

@@ -2,16 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models.dart';
+import 'hive_adapters.dart';
 
 // Storage Service
 class StorageService {
   static late Box _preferencesBox;
   static late Box _sessionsBox;
+  static late Box<Goal> _goalsBox;
   
   static Future<void> init() async {
     await Hive.initFlutter();
+    
+    // Register adapters if not registered
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(GoalAdapter());
+    }
+    if (!Hive.isAdapterRegistered(1)) {
+      Hive.registerAdapter(SubTaskAdapter());
+    }
+    
     _preferencesBox = await Hive.openBox('preferences');
     _sessionsBox = await Hive.openBox('sessions');
+    _goalsBox = await Hive.openBox<Goal>('goals');
+  }
+  
+  // Goals Operations
+  static Future<List<Goal>> getAllGoals() async {
+    return _goalsBox.values.toList();
+  }
+  
+  static Future<void> saveGoal(Goal goal) async {
+    await _goalsBox.put(goal.id, goal);
+  }
+  
+  static Future<void> updateGoal(Goal goal) async {
+    await _goalsBox.put(goal.id, goal);
+  }
+  
+  static Future<void> deleteGoal(String id) async {
+    await _goalsBox.delete(id);
+  }
+  
+  static Goal? getGoal(String id) {
+    return _goalsBox.get(id);
+  }
+  
+  static Future<void> clearAllGoals() async {
+    await _goalsBox.clear();
   }
   
   static Future<bool> isOnboardingComplete() async {

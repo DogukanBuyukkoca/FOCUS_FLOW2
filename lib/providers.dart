@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
+import 'storage_service.dart';
 
 // Selected Goal Provider for Special Timer
 final selectedGoalProvider = StateProvider<Goal?>((ref) => null);
@@ -145,114 +146,105 @@ class TimerNotifier extends StateNotifier<TimerState> {
   }
 }
 
-// Enhanced Goals Provider
+// Enhanced Goals Provider with Hive Support
 final goalsProvider = StateNotifierProvider<GoalsNotifier, List<Goal>>((ref) {
   return GoalsNotifier();
 });
 
 class GoalsNotifier extends StateNotifier<List<Goal>> {
-  GoalsNotifier() : super(_mockGoals()); // Start with mock data for testing
-  
-  static List<Goal> _mockGoals() {
-    return [
-      Goal(
-        id: '1',
-        title: 'Complete Flutter Project',
-        description: 'Finish the Pomodoro timer app with all features',
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        dueDate: DateTime.now().add(const Duration(days: 3)),
-        category: GoalCategory.work,
-        priority: GoalPriority.high,
-        progress: 0.65,
-        estimatedMinutes: 240,
-        actualMinutes: 156,
-        subTasks: [
-          SubTask(id: 's1', title: 'Design UI', isCompleted: true),
-          SubTask(id: 's2', title: 'Implement timer logic', isCompleted: true),
-          SubTask(id: 's3', title: 'Add statistics', isCompleted: false),
-          SubTask(id: 's4', title: 'Testing', isCompleted: false),
-        ],
-        tags: ['flutter', 'mobile', 'development'],
-        streak: 3,
-      ),
-      Goal(
-        id: '2',
-        title: 'Morning Meditation',
-        description: 'Practice mindfulness for 15 minutes',
-        createdAt: DateTime.now().subtract(const Duration(days: 7)),
-        dueDate: DateTime.now(),
-        category: GoalCategory.health,
-        priority: GoalPriority.medium,
-        repeatType: RepeatType.daily,
-        streak: 7,
-        estimatedMinutes: 15,
-        tags: ['health', 'meditation', 'daily'],
-      ),
-    ];
+  GoalsNotifier() : super([]) {
+    _loadGoals();
   }
   
-  void addGoal(Goal goal) {
+  Future<void> _loadGoals() async {
+    try {
+      final goals = await StorageServices.getAllGoals();
+      state = goals;
+    } catch (e) {
+      // If error loading from storage, initialize with empty list
+      state = [];
+    }
+  }
+  
+  Future<void> addGoal(Goal goal) async {
     state = [...state, goal];
+    await StorageServices.saveGoal(goal);
   }
   
-  void updateGoal(Goal updatedGoal) {
+  Future<void> updateGoal(Goal updatedGoal) async {
     state = state.map((goal) {
       return goal.id == updatedGoal.id ? updatedGoal : goal;
     }).toList();
+    await StorageServices.updateGoal(updatedGoal);
   }
   
-  void toggleComplete(String id) {
-    state = state.map((goal) {
-      if (goal.id == id) {
-        final now = DateTime.now();
-        return goal.copyWith(
-          isCompleted: !goal.isCompleted,
-          completedAt: !goal.isCompleted ? now : null,
-          actualMinutes: !goal.isCompleted ? goal.estimatedMinutes : 0,
-          completionHistory: !goal.isCompleted 
-              ? [...goal.completionHistory, now]
-              : goal.completionHistory,
-          streak: !goal.isCompleted ? goal.streak + 1 : goal.streak,
-          progress: !goal.isCompleted ? 1.0 : 0.0,
-        );
-      }
-      return goal;
-    }).toList();
+  Future<void> toggleComplete(String id) async {
+    final goalIndex = state.indexWhere((goal) => goal.id == id);
+    if (goalIndex != -1) {
+      final goal = state[goalIndex];
+      final now = DateTime.now();
+      final updatedGoal = goal.copyWith(
+        isCompleted: !goal.isCompleted,
+        completedAt: !goal.isCompleted ? now : null,
+        actualMinutes: !goal.isCompleted ? goal.estimatedMinutes : 0,
+        completionHistory: !goal.isCompleted 
+            ? [...goal.completionHistory, now]
+            : goal.completionHistory,
+        streak: !goal.isCompleted ? goal.streak + 1 : goal.streak,
+        progress: !goal.isCompleted ? 1.0 : 0.0,
+      );
+      
+      state = [
+        ...state.sublist(0, goalIndex),
+        updatedGoal,
+        ...state.sublist(goalIndex + 1),
+      ];
+      
+      await StorageServices.updateGoal(updatedGoal);
+    }
   }
   
-  void toggleSubTask(String goalId, String subTaskId) {
-    state = state.map((goal) {
-      if (goal.id == goalId) {
-        final updatedSubTasks = goal.subTasks.map((subTask) {
-          if (subTask.id == subTaskId) {
-            return subTask.copyWith(isCompleted: !subTask.isCompleted);
-          }
-          return subTask;
-        }).toList();
-        
-        // Calculate progress based on subtasks
-        final completedCount = updatedSubTasks.where((t) => t.isCompleted).length;
-        final progress = updatedSubTasks.isEmpty 
-            ? 0.0 
-            : completedCount / updatedSubTasks.length;
-        
-        // Check if all subtasks are completed
-        final allCompleted = updatedSubTasks.isNotEmpty && 
-                            updatedSubTasks.every((t) => t.isCompleted);
-        
-        return goal.copyWith(
-          subTasks: updatedSubTasks,
-          progress: progress,
-          isCompleted: allCompleted,
-          completedAt: allCompleted ? DateTime.now() : null,
-        );
-      }
-      return goal;
-    }).toList();
+  Future<void> toggleSubTask(String goalId, String subTaskId) async {
+    final goalIndex = state.indexWhere((goal) => goal.id == goalId);
+    if (goalIndex != -1) {
+      final goal = state[goalIndex];
+      final updatedSubTasks = goal.subTasks.map((subTask) {
+        if (subTask.id == subTaskId) {
+          return subTask.copyWith(isCompleted: !subTask.isCompleted);
+        }
+        return subTask;
+      }).toList();
+      
+      // Calculate progress based on subtasks
+      final completedCount = updatedSubTasks.where((t) => t.isCompleted).length;
+      final progress = updatedSubTasks.isEmpty 
+          ? 0.0 
+          : completedCount / updatedSubTasks.length;
+      
+      // Check if all subtasks are completed
+      final allCompleted = updatedSubTasks.isNotEmpty && 
+                          updatedSubTasks.every((t) => t.isCompleted);
+      
+      final updatedGoal = goal.copyWith(
+        subTasks: updatedSubTasks,
+        progress: progress,
+        isCompleted: allCompleted,
+        completedAt: allCompleted ? DateTime.now() : null,
+      );
+      
+      state = [
+        ...state.sublist(0, goalIndex),
+        updatedGoal,
+        ...state.sublist(goalIndex + 1),
+      ];
+      
+      await StorageServices.updateGoal(updatedGoal);
+    }
   }
   
-  void deleteGoal(String id) {
+  Future<void> deleteGoal(String id) async {
     state = state.where((goal) => goal.id != id).toList();
+    await StorageServices.deleteGoal(id);
   }
   
   List<Goal> searchGoals(String query) {

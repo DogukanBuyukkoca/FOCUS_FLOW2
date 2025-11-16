@@ -40,8 +40,10 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final goals = ref.watch(goalsProvider);
-    final mediaQuery = MediaQuery.of(context);
+    final allGoals = ref.watch(goalsProvider);
+    
+    // Filtreleme mantığını burada uyguluyoruz
+    final goals = _getFilteredGoals(allGoals);
     
     return Scaffold(
       body: Container(
@@ -50,148 +52,97 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: isDark
-                ? [AppTheme.darkBackground, AppTheme.darkSurface]
-                : [AppTheme.lightBackground, Colors.white],
+                ? [
+                    const Color(0xFF1a1a2e),
+                    const Color(0xFF16213e),
+                  ]
+                : [
+                    Colors.grey[50]!,
+                    Colors.grey[100]!,
+                  ],
           ),
         ),
         child: SafeArea(
           child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
             slivers: [
-              // App Bar with Search - FIX: Overflow Ã¶nlendi
+              // App Bar
               SliverAppBar(
-                floating: true,
+                expandedHeight: 120,
+                floating: false,
+                pinned: true,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                expandedHeight: 85,
                 flexibleSpace: FlexibleSpaceBar(
-                  background: Padding(
-                    padding: const EdgeInsets.all(AppTheme.spacing16),
-                    child: Column(
+                  title: Text(
+                    'Goals',
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  centerTitle: false,
+                  titlePadding: const EdgeInsets.only(
+                    left: AppTheme.spacing16,
+                    bottom: AppTheme.spacing16,
+                  ),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.search_rounded),
+                    onPressed: () {
+                      // Search functionality can be implemented here
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.sort_rounded),
+                    onPressed: _showSortOptions,
+                  ),
+                ],
+              ),
+              
+              // Filter Chips - Responsive ve overflow önlendi
+              SliverToBoxAdapter(
+                child: Container(
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded( // FIX: Title iÃ§in Expanded ekledik
-                              child: Text(
-                                'Goals',
-                                style: theme.textTheme.headlineLarge,
-                                overflow: TextOverflow.ellipsis,
-                              ).animate().fadeIn(),
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min, // FIX: Minimum boyut kullan
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.sort_rounded),
-                                  onPressed: () {
-                                    _showSortOptions();
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.calendar_today_rounded),
-                                  onPressed: () {
-                                    // Show calendar view
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
+                        _buildFilterChip(
+                          label: 'All',
+                          filter: GoalFilter.all,
+                          count: allGoals.length,
                         ),
-
-                        //const SizedBox(height: AppTheme.spacing4),
-
-                        // Search Bar - FIX: Responsive geniÅŸlik
-                        // Expanded(
-                        //   child: Container(
-                        //     width: double.infinity, // FIX: Tam geniÅŸlik
-                        //     height: 100,
-                        //     decoration: BoxDecoration(
-                        //       color: theme.colorScheme.surface,
-                        //       borderRadius: BorderRadius.circular(AppTheme.radius12),
-                        //       border: Border.all(
-                        //         color: theme.colorScheme.onSurface.withOpacity(0.1),
-                        //         width: 1,
-                        //       ),
-                        //     ),
-                        //     child: TextField(
-                        //       controller: _searchController,
-                        //       style: theme.textTheme.bodyMedium,
-                        //       decoration: InputDecoration(
-                        //         hintText: 'Search goals...',
-                        //         hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                        //           color: theme.colorScheme.onSurface.withOpacity(0.5),
-                        //         ),
-                        //         prefixIcon: Icon(
-                        //           Icons.search_rounded,
-                        //           color: theme.colorScheme.onSurface.withOpacity(0.5),
-                        //         ),
-                        //         border: InputBorder.none,
-                        //         contentPadding: const EdgeInsets.symmetric(
-                        //           horizontal: AppTheme.spacing16,
-                        //           vertical: AppTheme.spacing12,
-                        //         ),
-                        //       ),
-                        //       onChanged: (value) {
-                        //         ref.read(goalsProvider.notifier).searchGoals(value);
-                        //       },
-                        //     ),
-                        //   ).animate().fadeIn(delay: 100.ms).slideY(begin: -0.2),
-                        // ),
+                        const SizedBox(width: AppTheme.spacing8),
+                        _buildFilterChip(
+                          label: 'Today',
+                          filter: GoalFilter.today,
+                          count: allGoals.where((g) => g.isToday).length,
+                        ),
+                        const SizedBox(width: AppTheme.spacing8),
+                        // Active butonu kaldırıldı
+                        _buildFilterChip(
+                          label: 'Completed',
+                          filter: GoalFilter.completed,
+                          count: allGoals.where((g) => g.isCompleted).length,
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
               
-              // Filter Chips - FIX: Scroll overflow Ã¶nlendi
-              SliverToBoxAdapter(
-                child: Container(
-                  height: 50,
-                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing16),
-                  child: SingleChildScrollView( // FIX: ScrollView eklendi
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row( // FIX: ListView yerine Row kullandÄ±k
-                      children: [
-                        _buildFilterChip(
-                          label: 'All',
-                          filter: GoalFilter.all,
-                          count: goals.length,
-                        ),
-                        const SizedBox(width: AppTheme.spacing8),
-                        _buildFilterChip(
-                          label: 'Today',
-                          filter: GoalFilter.today,
-                          count: goals.where((g) => g.isToday).length,
-                        ),
-                        const SizedBox(width: AppTheme.spacing8),
-                        _buildFilterChip(
-                          label: 'Active',
-                          filter: GoalFilter.active,
-                          count: goals.where((g) => !g.isCompleted).length,
-                        ),
-                        const SizedBox(width: AppTheme.spacing8),
-                        _buildFilterChip(
-                          label: 'Completed',
-                          filter: GoalFilter.completed,
-                          count: goals.where((g) => g.isCompleted).length,
-                        ),
-                      ],
-                    ),
-                  ),
-                ).animate().fadeIn(delay: 200.ms),
-              ),
-              
-              // Progress Summary Card - FIX: Responsive boyut
+              // Progress Summary Card - Responsive boyut
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(AppTheme.spacing16),
-                  child: LayoutBuilder( // FIX: LayoutBuilder eklendi
+                  child: LayoutBuilder(
                     builder: (context, constraints) {
                       return GlassContainer.clearGlass(
-                        width: constraints.maxWidth, // FIX: Responsive geniÅŸlik
-                        height: 120, // FIX: Daha kompakt yÃ¼kseklik
+                        width: constraints.maxWidth,
+                        height: 120,
                         padding: const EdgeInsets.all(AppTheme.spacing16),
                         gradient: LinearGradient(
                           colors: [
@@ -215,7 +166,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                             Expanded(
                               child: _buildProgressStat(
                                 title: 'Today\'s Progress',
-                                value: '${_getTodayProgress(goals)}%',
+                                value: '${_getTodayProgress(allGoals)}%',
                                 icon: Icons.today_rounded,
                                 color: AppTheme.primaryColor,
                               ),
@@ -228,7 +179,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                             Expanded(
                               child: _buildProgressStat(
                                 title: 'Week Completion',
-                                value: '${_getWeekCompletion(goals)}%',
+                                value: '${_getWeekCompletion(allGoals)}%',
                                 icon: Icons.calendar_view_week_rounded,
                                 color: AppTheme.secondaryColor,
                               ),
@@ -237,7 +188,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                         ),
                       );
                     },
-                  ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.1),
+                  ),
                 ),
               ),
               
@@ -251,53 +202,56 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.task_alt_rounded,
-                                size: 80,
+                                Icons.flag_outlined,
+                                size: 64,
                                 color: theme.colorScheme.onSurface.withOpacity(0.3),
                               ),
                               const SizedBox(height: AppTheme.spacing16),
                               Text(
                                 'No goals yet',
-                                style: theme.textTheme.headlineSmall?.copyWith(
+                                style: theme.textTheme.titleLarge?.copyWith(
                                   color: theme.colorScheme.onSurface.withOpacity(0.5),
                                 ),
                               ),
                               const SizedBox(height: AppTheme.spacing8),
                               Text(
-                                'Add your first goal to get started',
+                                'Tap the + button to add your first goal',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.onSurface.withOpacity(0.4),
                                 ),
                               ),
-                              // const SizedBox(height: AppTheme.spacing24),
-                              // ElevatedButton.icon(
-                              //   onPressed: _showAddGoalSheet,
-                              //   icon: const Icon(Icons.add_rounded),
-                              //   label: const Text('Add Goal'),
-                              // ),
                             ],
-                          ).animate().fadeIn(),
+                          ),
                         ),
                       )
-                    : SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final goal = goals[index];
-                            return GoalCard(
-                              goal: goal,
-                              onTap: () => _showGoalDetails(goal),
-                              onComplete: () {
-                                ref.read(goalsProvider.notifier).toggleComplete(goal.id);
-                              },
-                              onDelete: () {
-                                ref.read(goalsProvider.notifier).deleteGoal(goal.id);
-                              },
-                            ).animate().fadeIn(delay: (400 + index * 50).ms).slideX(
-                              begin: index.isEven ? -0.2 : 0.2,
-                            );
-                          },
-                          childCount: goals.length,
-                        ),
+                    : SliverAnimatedList(
+                        initialItemCount: goals.length,
+                        itemBuilder: (context, index, animation) {
+                          final goal = goals[index];
+                          return SlideTransition(
+                            position: animation.drive(
+                              Tween(
+                                begin: const Offset(0.3, 0),
+                                end: Offset.zero,
+                              ).chain(CurveTween(curve: Curves.easeOut)),
+                            ),
+                            child: FadeTransition(
+                              opacity: animation,
+                              child: GoalCard(
+                                goal: goal,
+                                onTap: () => _showGoalDetails(goal),
+                                onComplete: () {
+                                  HapticFeedback.mediumImpact();
+                                  ref.read(goalsProvider.notifier).toggleComplete(goal.id);
+                                },
+                                onDelete: () {
+                                  HapticFeedback.heavyImpact();
+                                  ref.read(goalsProvider.notifier).deleteGoal(goal.id);
+                                },
+                              ),
+                            ),
+                          );
+                        },
                       ),
               ),
               
@@ -320,8 +274,24 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
             fontWeight: FontWeight.w600,
           ),
         ),
-      ).animate().scale(delay: 500.ms),
+      ),
     );
+  }
+  
+  // Filtreleme mantığı - doğru çalışacak şekilde düzenlendi
+  List<Goal> _getFilteredGoals(List<Goal> allGoals) {
+    switch (_selectedFilter) {
+      case GoalFilter.all:
+        return allGoals;
+      case GoalFilter.today:
+        return allGoals.where((goal) => goal.isToday).toList();
+      case GoalFilter.completed:
+        return allGoals.where((goal) => goal.isCompleted).toList();
+      case GoalFilter.thisWeek:
+        return allGoals.where((goal) => goal.isThisWeek).toList();
+      case GoalFilter.overdue:
+        return allGoals.where((goal) => goal.isOverdue).toList();
+    }
   }
   
   Widget _buildFilterChip({
@@ -334,14 +304,14 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
     
     return FilterChip(
       label: Row(
-        mainAxisSize: MainAxisSize.min, // FIX: Minimum boyut
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(label),
           if (count > 0) ...[
             const SizedBox(width: AppTheme.spacing4),
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacing4, // FIX: Padding kÃ¼Ã§Ã¼ltÃ¼ldÃ¼
+                horizontal: AppTheme.spacing4,
                 vertical: AppTheme.spacing4,
               ),
               decoration: BoxDecoration(
@@ -355,7 +325,7 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: isSelected ? Colors.white : AppTheme.primaryColor,
                   fontWeight: FontWeight.bold,
-                  fontSize: 10, // FIX: Font boyutu kÃ¼Ã§Ã¼ltÃ¼ldÃ¼
+                  fontSize: 10,
                 ),
               ),
             ),
@@ -368,7 +338,6 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
           setState(() {
             _selectedFilter = filter;
           });
-          ref.read(goalsProvider.notifier).filterGoals(filter);
         }
       },
       backgroundColor: theme.colorScheme.surface,
@@ -398,27 +367,27 @@ class _GoalsPageState extends ConsumerState<GoalsPage> {
     final theme = Theme.of(context);
     
     return Column(
-      mainAxisSize: MainAxisSize.min, // FIX: Minimum boyut
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color, size: 20), // FIX: Icon boyutu kÃ¼Ã§Ã¼ltÃ¼ldÃ¼
+        Icon(icon, color: color, size: 20),
         const SizedBox(height: AppTheme.spacing4),
         Text(
           value,
-          style: theme.textTheme.titleLarge?.copyWith( // FIX: headlineSmall â†’ titleLarge
+          style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
         const SizedBox(height: AppTheme.spacing4),
-        Flexible( // FIX: Flexible eklendi
+        Flexible(
           child: Text(
             title,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withOpacity(0.6),
-              fontSize: 11, // FIX: Font boyutu kÃ¼Ã§Ã¼ltÃ¼ldÃ¼
+              fontSize: 11,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2, // FIX: Maksimum 2 satÄ±r
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ),

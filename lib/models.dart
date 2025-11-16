@@ -70,8 +70,8 @@ class TimerState {
   }
 }
 
-// Enhanced Goals Models
-enum GoalFilter { all, today, active, completed, thisWeek, overdue }
+// Enhanced Goals Models - Active filtresi kaldırıldı
+enum GoalFilter { all, today, completed, thisWeek, overdue }
 enum GoalPriority { low, medium, high, urgent }
 enum GoalCategory { work, personal, health, education, finance, hobby, other }
 enum RepeatType { none, daily, weekly, monthly }
@@ -293,6 +293,7 @@ class Settings {
   final bool hapticEnabled;
   final bool notificationsEnabled;
   final String? dailyReminderTime;
+  final bool darkMode;
   final bool isPremium;
 
   Settings({
@@ -306,6 +307,7 @@ class Settings {
     this.hapticEnabled = true,
     this.notificationsEnabled = true,
     this.dailyReminderTime,
+    this.darkMode = false,
     this.isPremium = false,
   });
 
@@ -320,6 +322,7 @@ class Settings {
     bool? hapticEnabled,
     bool? notificationsEnabled,
     String? dailyReminderTime,
+    bool? darkMode,
     bool? isPremium,
   }) {
     return Settings(
@@ -333,27 +336,13 @@ class Settings {
       hapticEnabled: hapticEnabled ?? this.hapticEnabled,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       dailyReminderTime: dailyReminderTime ?? this.dailyReminderTime,
+      darkMode: darkMode ?? this.darkMode,
       isPremium: isPremium ?? this.isPremium,
     );
   }
 }
 
-// Premium Models
-class PremiumFeature {
-  final IconData icon;
-  final String title;
-  final String description;
-  final Color color;
-
-  PremiumFeature({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.color,
-  });
-}
-
-// User Preferences
+// User Preferences Model
 class UserPreferences {
   final int defaultFocusMinutes;
   final bool autoStartNext;
@@ -364,4 +353,16 @@ class UserPreferences {
     this.autoStartNext = false,
     this.autoStartBreaks = false,
   });
+
+  UserPreferences copyWith({
+    int? defaultFocusMinutes,
+    bool? autoStartNext,
+    bool? autoStartBreaks,
+  }) {
+    return UserPreferences(
+      defaultFocusMinutes: defaultFocusMinutes ?? this.defaultFocusMinutes,
+      autoStartNext: autoStartNext ?? this.autoStartNext,
+      autoStartBreaks: autoStartBreaks ?? this.autoStartBreaks,
+    );
+  }
 }

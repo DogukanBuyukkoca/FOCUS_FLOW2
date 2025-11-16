@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
+import 'services.dart';
 import 'storage_service.dart';
 
 // Selected Goal Provider for Special Timer
@@ -158,7 +159,7 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
   
   Future<void> _loadGoals() async {
     try {
-      final goals = await StorageServices.getAllGoals();
+      final goals = await StorageService.getAllGoals();
       state = goals;
     } catch (e) {
       // If error loading from storage, initialize with empty list
@@ -168,14 +169,14 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
   
   Future<void> addGoal(Goal goal) async {
     state = [...state, goal];
-    await StorageServices.saveGoal(goal);
+    await StorageService.saveGoal(goal);
   }
   
   Future<void> updateGoal(Goal updatedGoal) async {
     state = state.map((goal) {
       return goal.id == updatedGoal.id ? updatedGoal : goal;
     }).toList();
-    await StorageServices.updateGoal(updatedGoal);
+    await StorageService.updateGoal(updatedGoal);
   }
   
   Future<void> toggleComplete(String id) async {
@@ -200,7 +201,7 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
         ...state.sublist(goalIndex + 1),
       ];
       
-      await StorageServices.updateGoal(updatedGoal);
+      await StorageService.updateGoal(updatedGoal);
     }
   }
   
@@ -238,13 +239,13 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
         ...state.sublist(goalIndex + 1),
       ];
       
-      await StorageServices.updateGoal(updatedGoal);
+      await StorageService.updateGoal(updatedGoal);
     }
   }
   
   Future<void> deleteGoal(String id) async {
     state = state.where((goal) => goal.id != id).toList();
-    await StorageServices.deleteGoal(id);
+    await StorageService.deleteGoal(id);
   }
   
   List<Goal> searchGoals(String query) {
@@ -258,14 +259,13 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
     }).toList();
   }
   
+  // UPDATED: Active filtresi kaldırıldı
   List<Goal> filterGoals(GoalFilter filter) {
     switch (filter) {
       case GoalFilter.all:
         return state;
       case GoalFilter.today:
         return state.where((goal) => goal.isToday).toList();
-      case GoalFilter.active:
-        return state.where((goal) => !goal.isCompleted).toList();
       case GoalFilter.completed:
         return state.where((goal) => goal.isCompleted).toList();
       case GoalFilter.thisWeek:

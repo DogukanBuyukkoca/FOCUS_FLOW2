@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_theme.dart';
@@ -513,7 +514,7 @@ class QuickStatsCard extends StatelessWidget {
   }
 }
 
-class GoalCard extends StatelessWidget {
+class GoalCard extends ConsumerWidget {
   final Goal goal;
   final VoidCallback onTap;
   final VoidCallback onComplete;
@@ -539,14 +540,147 @@ class GoalCard extends StatelessWidget {
       return '$hours ${hours == 1 ? 'hr' : 'hrs'} $remainingMinutes min';
     }
   }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final targetDate = DateTime(date.year, date.month, date.day);
+    
+    if (targetDate == today) {
+      return 'Today';
+    } else if (targetDate == tomorrow) {
+      return 'Tomorrow';
+    } else {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}';
+    }
+  }
+
+  Widget _buildInfoChip({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacing8,
+        vertical: AppTheme.spacing4,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppTheme.radius8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _setAsSpecialGoal(BuildContext context, WidgetRef ref) {
+    // Goal'ın estimated time'ı varsa special timer'a set et
+    if (goal.estimatedMinutes > 0) {
+      ref.read(selectedGoalProvider.notifier).state = goal;
+      
+      HapticFeedback.mediumImpact();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.timer_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Special timer set to ${_formatDuration(goal.estimatedMinutes)}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color.fromARGB(199, 255, 107, 107),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radius12),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      // Estimated time yoksa uyar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.warning_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'This goal has no estimated time',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radius12),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
   
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     
     return Dismissible(
       key: Key(goal.id),
+      // Sağa sürükleme için background (Special timer'a set)
       background: Container(
+        margin: const EdgeInsets.only(bottom: AppTheme.spacing12),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor,
+          borderRadius: BorderRadius.circular(AppTheme.radius16),
+        ),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: AppTheme.spacing20),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.timer_rounded, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              'Set Timer',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      // Sola sürükleme için secondary background (Silme)
+      secondaryBackground: Container(
         margin: const EdgeInsets.only(bottom: AppTheme.spacing12),
         decoration: BoxDecoration(
           color: Colors.red,
@@ -554,10 +688,62 @@ class GoalCard extends StatelessWidget {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: AppTheme.spacing20),
-        child: const Icon(Icons.delete_rounded, color: Colors.white),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Delete',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.delete_rounded, color: Colors.white),
+          ],
+        ),
       ),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(),
+      // Her iki yöne de sürüklenebilir
+      direction: DismissDirection.horizontal,
+      // Sürükleme onayı
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Sağa sürükleme - Special timer'a set et
+          _setAsSpecialGoal(context, ref);
+          return false; // Card'ı silme, sadece timer'ı set et
+        } else if (direction == DismissDirection.endToStart) {
+          // Sola sürükleme - Silme onayı
+          return await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Delete Goal'),
+              content: Text('Are you sure you want to delete "${goal.title}"?'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radius16),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ],
+            ),
+          ) ?? false;
+        }
+        return false;
+      },
+      onDismissed: (direction) {
+        if (direction == DismissDirection.endToStart) {
+          onDelete();
+        }
+      },
       child: GestureDetector(
         onTap: onTap,
         child: Container(
@@ -644,10 +830,6 @@ class GoalCard extends StatelessWidget {
               // Bottom Section: Estimated Time, Due Date, and Priority
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final availableWidth = constraints.maxWidth;
-                  // Calculate if we need to wrap to multiple lines
-                  final shouldWrap = availableWidth < 300;
-                  
                   return Wrap(
                     spacing: AppTheme.spacing12,
                     runSpacing: AppTheme.spacing8,
@@ -668,186 +850,56 @@ class GoalCard extends StatelessWidget {
                           context: context,
                           icon: Icons.calendar_today_outlined,
                           label: _formatDate(goal.dueDate!),
-                          color: _getDateColor(goal.dueDate!, theme),
+                          color: _isOverdue(goal.dueDate!) 
+                              ? Colors.red 
+                              : theme.colorScheme.onSurface.withOpacity(0.6),
                         ),
                       
                       // Priority Badge
-                      _buildPriorityBadge(theme),
+                      _buildInfoChip(
+                        context: context,
+                        icon: Icons.flag_outlined,
+                        label: goal.priority.name.toUpperCase(),
+                        color: goal.priorityColor,
+                      ),
+                      
+                      // Tags
+                      ...goal.tags.take(2).map((tag) => _buildInfoChip(
+                        context: context,
+                        icon: Icons.tag_rounded,
+                        label: tag,
+                        color: theme.colorScheme.secondary,
+                      )),
                       
                       // Subtasks indicator
                       if (goal.subTasks.isNotEmpty)
                         _buildInfoChip(
                           context: context,
                           icon: Icons.checklist_rounded,
-                          label: '${goal.subTasks.where((t) => t.isCompleted).length}/${goal.subTasks.length}',
-                          color: theme.colorScheme.primary,
+                          label: '${goal.subTasks.where((s) => s.isCompleted).length}/${goal.subTasks.length}',
+                          color: theme.colorScheme.tertiary,
                         ),
                     ],
                   );
                 },
               ),
-              
-              // Tags (if exists)
-              if (goal.tags.isNotEmpty) ...[
-                const SizedBox(height: AppTheme.spacing12),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Wrap(
-                      spacing: AppTheme.spacing4,
-                      runSpacing: AppTheme.spacing4,
-                      children: goal.tags.take(3).map((tag) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.spacing8,
-                            vertical: AppTheme.spacing4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceVariant,
-                            borderRadius: BorderRadius.circular(AppTheme.radius8),
-                          ),
-                          child: Text(
-                            tag,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-              ],
             ],
           ),
         ),
       ),
     );
   }
-  
-  Widget _buildInfoChip({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    final theme = Theme.of(context);
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing8,
-        vertical: AppTheme.spacing4,
-      ),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppTheme.radius8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: color,
-          ),
-          const SizedBox(width: AppTheme.spacing4),
-          Flexible(
-            child: Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildPriorityBadge(ThemeData theme) {
-    String priorityText;
-    switch (goal.priority) {
-      case GoalPriority.low:
-        priorityText = 'Low';
-        break;
-      case GoalPriority.medium:
-        priorityText = 'Medium';
-        break;
-      case GoalPriority.high:
-        priorityText = 'High';
-        break;
-      case GoalPriority.urgent:
-        // TODO: Handle this case.
-        throw UnimplementedError();
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing8,
-        vertical: AppTheme.spacing4,
-      ),
-      decoration: BoxDecoration(
-        color: goal.priorityColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppTheme.radius8),
-        border: Border.all(
-          color: goal.priorityColor.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        priorityText,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: goal.priorityColor,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-  
-  String _formatDate(DateTime date) {
+
+  bool _isOverdue(DateTime dueDate) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    final targetDate = DateTime(date.year, date.month, date.day);
-    
-    if (targetDate == today) {
-      return 'Today';
-    } else if (targetDate == tomorrow) {
-      return 'Tomorrow';
-    } else if (targetDate.isBefore(today)) {
-      final difference = today.difference(targetDate).inDays;
-      return '$difference ${difference == 1 ? 'day' : 'days'} ago';
-    } else {
-      final difference = targetDate.difference(today).inDays;
-      if (difference <= 7) {
-        return 'In $difference ${difference == 1 ? 'day' : 'days'}';
-      } else {
-        return '${date.day}/${date.month}/${date.year}';
-      }
-    }
-  }
-  
-  Color _getDateColor(DateTime date, ThemeData theme) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final targetDate = DateTime(date.year, date.month, date.day);
-    final difference = targetDate.difference(today).inDays;
-    
-    if (difference < 0) {
-      return Colors.red; // Overdue
-    } else if (difference == 0) {
-      return Colors.orange; // Due today
-    } else if (difference <= 3) {
-      return Colors.amber; // Due soon
-    } else {
-      return theme.colorScheme.primary; // Normal
-    }
+    final targetDate = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    return targetDate.isBefore(today);
   }
 }
+
+
+
 
 class AddGoalSheet extends ConsumerStatefulWidget {
   const AddGoalSheet({super.key});

@@ -3,12 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'services.dart';
-import 'storage_service.dart';
 
-// Selected Goal Provider for Special Timer
 final selectedGoalProvider = StateProvider<Goal?>((ref) => null);
 
-// Timer Provider with Enhanced Special Session Support
 final timerProvider = StateNotifierProvider<TimerNotifier, TimerState>((ref) {
   return TimerNotifier(ref);
 });
@@ -17,7 +14,20 @@ class TimerNotifier extends StateNotifier<TimerState> {
   Timer? _timer;
   final Ref ref;
   
-  TimerNotifier(this.ref) : super(TimerState.initial());
+  TimerNotifier(this.ref) : super(TimerState.initial()) {
+    _initializeFromSettings();
+  }
+  
+  void _initializeFromSettings() {
+    Future.microtask(() {
+      final settings = ref.read(settingsProvider);
+      final duration = Duration(minutes: settings.focusDuration);
+      state = state.copyWith(
+        targetDuration: duration,
+        remaining: duration,
+      );
+    });
+  }
   
   void start() {
     state = state.copyWith(isRunning: true, isPaused: false);
@@ -36,21 +46,23 @@ class TimerNotifier extends StateNotifier<TimerState> {
   
   void reset() {
     _timer?.cancel();
-    // Keep the current session type but reset the timer
     Duration duration;
+    
     if (state.isSpecialSession) {
       final selectedGoal = ref.read(selectedGoalProvider);
       duration = Duration(minutes: selectedGoal?.estimatedMinutes ?? 25);
     } else {
+      // Settings'ten süreleri al
+      final settings = ref.read(settingsProvider);
       switch (state.sessionType) {
         case SessionType.focus:
-          duration = const Duration(minutes: 25);
+          duration = Duration(minutes: settings.focusDuration);
           break;
         case SessionType.shortBreak:
-          duration = const Duration(minutes: 5);
+          duration = Duration(minutes: settings.shortBreakDuration);
           break;
         case SessionType.longBreak:
-          duration = const Duration(minutes: 15);
+          duration = Duration(minutes: settings.longBreakDuration);
           break;
       }
     }
@@ -71,16 +83,21 @@ class TimerNotifier extends StateNotifier<TimerState> {
   }
   
   void changeSessionType(SessionType type) {
+    _timer?.cancel();
+    
+    // Settings'ten süreleri al
+    final settings = ref.read(settingsProvider);
     Duration duration;
+    
     switch (type) {
       case SessionType.focus:
-        duration = const Duration(minutes: 25);
+        duration = Duration(minutes: settings.focusDuration);
         break;
       case SessionType.shortBreak:
-        duration = const Duration(minutes: 5);
+        duration = Duration(minutes: settings.shortBreakDuration);
         break;
       case SessionType.longBreak:
-        duration = const Duration(minutes: 15);
+        duration = Duration(minutes: settings.longBreakDuration);
         break;
     }
     
@@ -88,8 +105,11 @@ class TimerNotifier extends StateNotifier<TimerState> {
       sessionType: type,
       targetDuration: duration,
       remaining: duration,
+      isRunning: false,
+      isPaused: false,
+      isCompleted: false,
       progress: 0.0,
-      isSpecialSession: false,  // Clear special session when changing type
+      isSpecialSession: false,
     );
   }
   
@@ -102,17 +122,44 @@ class TimerNotifier extends StateNotifier<TimerState> {
         remaining: duration,
         progress: 0.0,
         isSpecialSession: true,
-        sessionType: SessionType.focus,  // Special sessions are focus sessions
+        sessionType: SessionType.focus,
       );
     } else {
-      // If no goal is selected or has no estimated time, use default focus duration
-      final duration = const Duration(minutes: 25);
+      // Goal yoksa settings'ten focus duration kullan
+      final settings = ref.read(settingsProvider);
+      final duration = Duration(minutes: settings.focusDuration);
       state = state.copyWith(
         targetDuration: duration,
         remaining: duration,
         progress: 0.0,
         isSpecialSession: true,
         sessionType: SessionType.focus,
+      );
+    }
+  }
+  
+  // Settings değiştiğinde timer'ı güncelle (timer çalışmıyorsa)
+  void updateFromSettings() {
+    if (!state.isRunning && !state.isPaused && !state.isSpecialSession) {
+      final settings = ref.read(settingsProvider);
+      Duration duration;
+      
+      switch (state.sessionType) {
+        case SessionType.focus:
+          duration = Duration(minutes: settings.focusDuration);
+          break;
+        case SessionType.shortBreak:
+          duration = Duration(minutes: settings.shortBreakDuration);
+          break;
+        case SessionType.longBreak:
+          duration = Duration(minutes: settings.longBreakDuration);
+          break;
+      }
+      
+      state = state.copyWith(
+        targetDuration: duration,
+        remaining: duration,
+        progress: 0.0,
       );
     }
   }
@@ -147,7 +194,79 @@ class TimerNotifier extends StateNotifier<TimerState> {
   }
 }
 
-// Enhanced Goals Provider with Hive Support
+// TimerState sınıfı
+class TimerState {
+  final Duration targetDuration;
+  final Duration remaining;
+  final bool isRunning;
+  final bool isPaused;
+  final bool isCompleted;
+  final double progress;
+  final SessionType sessionType;
+  final int todaysSessions;
+  final int currentStreak;
+  final bool isSpecialSession;
+
+  TimerState({
+    required this.targetDuration,
+    required this.remaining,
+    required this.isRunning,
+    required this.isPaused,
+    required this.isCompleted,
+    required this.progress,
+    required this.sessionType,
+    required this.todaysSessions,
+    required this.currentStreak,
+    this.isSpecialSession = false,
+  });
+
+  factory TimerState.initial() {
+    return TimerState(
+      targetDuration: const Duration(minutes: 25),
+      remaining: const Duration(minutes: 25),
+      isRunning: false,
+      isPaused: false,
+      isCompleted: false,
+      progress: 0.0,
+      sessionType: SessionType.focus,
+      todaysSessions: 0,
+      currentStreak: 0,
+      isSpecialSession: false,
+    );
+  }
+
+  TimerState copyWith({
+    Duration? targetDuration,
+    Duration? remaining,
+    bool? isRunning,
+    bool? isPaused,
+    bool? isCompleted,
+    double? progress,
+    SessionType? sessionType,
+    int? todaysSessions,
+    int? currentStreak,
+    bool? isSpecialSession,
+  }) {
+    return TimerState(
+      targetDuration: targetDuration ?? this.targetDuration,
+      remaining: remaining ?? this.remaining,
+      isRunning: isRunning ?? this.isRunning,
+      isPaused: isPaused ?? this.isPaused,
+      isCompleted: isCompleted ?? this.isCompleted,
+      progress: progress ?? this.progress,
+      sessionType: sessionType ?? this.sessionType,
+      todaysSessions: todaysSessions ?? this.todaysSessions,
+      currentStreak: currentStreak ?? this.currentStreak,
+      isSpecialSession: isSpecialSession ?? this.isSpecialSession,
+    );
+  }
+}
+
+
+// ============================================================================
+// GOALS PROVIDER
+// ============================================================================
+
 final goalsProvider = StateNotifierProvider<GoalsNotifier, List<Goal>>((ref) {
   return GoalsNotifier();
 });
@@ -162,7 +281,6 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
       final goals = await StorageService.getAllGoals();
       state = goals;
     } catch (e) {
-      // If error loading from storage, initialize with empty list
       state = [];
     }
   }
@@ -216,13 +334,11 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
         return subTask;
       }).toList();
       
-      // Calculate progress based on subtasks
       final completedCount = updatedSubTasks.where((t) => t.isCompleted).length;
       final progress = updatedSubTasks.isEmpty 
           ? 0.0 
           : completedCount / updatedSubTasks.length;
       
-      // Check if all subtasks are completed
       final allCompleted = updatedSubTasks.isNotEmpty && 
                           updatedSubTasks.every((t) => t.isCompleted);
       
@@ -259,7 +375,6 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
     }).toList();
   }
   
-  // UPDATED: Active filtresi kaldırıldı
   List<Goal> filterGoals(GoalFilter filter) {
     switch (filter) {
       case GoalFilter.all:
@@ -316,9 +431,12 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
   }
 }
 
-// Statistics Provider
+
+// ============================================================================
+// STATISTICS PROVIDER
+// ============================================================================
+
 final statisticsProvider = Provider.family<AsyncValue<StatisticsData>, TimePeriod>((ref, period) {
-  // Mock data for now
   return AsyncValue.data(
     StatisticsData(
       totalFocusTime: const Duration(hours: 12, minutes: 30),
@@ -337,52 +455,84 @@ final statisticsProvider = Provider.family<AsyncValue<StatisticsData>, TimePerio
   );
 });
 
-// Settings Provider
+
+// ============================================================================
+// SETTINGS PROVIDER - Kalıcı ayarlar için Hive entegrasyonu
+// ============================================================================
+
 final settingsProvider = StateNotifierProvider<SettingsNotifier, Settings>((ref) {
-  return SettingsNotifier();
+  return SettingsNotifier(ref);
 });
 
 class SettingsNotifier extends StateNotifier<Settings> {
-  SettingsNotifier() : super(Settings());
+  final Ref ref;
   
-  void updateFocusDuration(int minutes) {
+  SettingsNotifier(this.ref) : super(Settings()) {
+    _loadSettings();
+  }
+  
+  Future<void> _loadSettings() async {
+    try {
+      final settings = await StorageService.getSettings();
+      state = settings;
+    } catch (e) {
+      state = Settings();
+    }
+  }
+  
+  Future<void> updateFocusDuration(int minutes) async {
     state = state.copyWith(focusDuration: minutes);
+    await StorageService.saveFocusDuration(minutes);
+    // Timer'ı güncelle
+    ref.read(timerProvider.notifier).updateFromSettings();
   }
   
-  void updateShortBreakDuration(int minutes) {
+  Future<void> updateShortBreakDuration(int minutes) async {
     state = state.copyWith(shortBreakDuration: minutes);
+    await StorageService.saveShortBreakDuration(minutes);
+    // Timer'ı güncelle
+    ref.read(timerProvider.notifier).updateFromSettings();
   }
   
-  void updateLongBreakDuration(int minutes) {
+  Future<void> updateLongBreakDuration(int minutes) async {
     state = state.copyWith(longBreakDuration: minutes);
+    await StorageService.saveLongBreakDuration(minutes);
+    // Timer'ı güncelle
+    ref.read(timerProvider.notifier).updateFromSettings();
   }
   
-  void updateSessionsUntilLongBreak(int sessions) {
+  Future<void> updateSessionsUntilLongBreak(int sessions) async {
     state = state.copyWith(sessionsUntilLongBreak: sessions);
   }
   
-  void updateAutoStartBreaks(bool value) {
+  Future<void> updateAutoStartBreaks(bool value) async {
     state = state.copyWith(autoStartBreaks: value);
+    await StorageService.saveAutoStartBreaks(value);
   }
   
-  void updateAutoStartFocus(bool value) {
+  Future<void> updateAutoStartFocus(bool value) async {
     state = state.copyWith(autoStartFocus: value);
+    await StorageService.saveAutoStartFocus(value);
   }
   
-  void updateSoundEnabled(bool value) {
+  Future<void> updateSoundEnabled(bool value) async {
     state = state.copyWith(soundEnabled: value);
+    await StorageService.saveSoundEnabled(value);
   }
   
-  void updateHapticEnabled(bool value) {
+  Future<void> updateHapticEnabled(bool value) async {
     state = state.copyWith(hapticEnabled: value);
+    await StorageService.saveHapticEnabled(value);
   }
   
-  void updateNotificationsEnabled(bool value) {
+  Future<void> updateNotificationsEnabled(bool value) async {
     state = state.copyWith(notificationsEnabled: value);
+    await StorageService.saveNotificationsEnabled(value);
   }
   
-  void updateDailyReminderTime(String time) {
+  Future<void> updateDailyReminderTime(String? time) async {
     state = state.copyWith(dailyReminderTime: time);
+    await StorageService.saveDailyReminderTime(time);
   }
   
   void setPremium(bool value) {
@@ -390,7 +540,11 @@ class SettingsNotifier extends StateNotifier<Settings> {
   }
 }
 
-// Theme Provider
+
+// ============================================================================
+// THEME PROVIDER
+// ============================================================================
+
 final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
   return ThemeModeNotifier();
 });
@@ -403,7 +557,11 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   }
 }
 
-// Locale Provider
+
+// ============================================================================
+// LOCALE PROVIDER
+// ============================================================================
+
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
   return LocaleNotifier();
 });
@@ -416,10 +574,13 @@ class LocaleNotifier extends StateNotifier<Locale> {
   }
 }
 
-// Premium Offerings Provider (Mock data instead of RevenueCat)
+
+// ============================================================================
+// PREMIUM OFFERINGS PROVIDER
+// ============================================================================
+
 final premiumOfferingsProvider = FutureProvider<List<PremiumPackage>>((ref) async {
-  // Mock premium packages - later you can integrate with RevenueCat
-  await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+  await Future.delayed(const Duration(seconds: 1));
   
   return [
     PremiumPackage(
@@ -437,7 +598,6 @@ final premiumOfferingsProvider = FutureProvider<List<PremiumPackage>>((ref) asyn
   ];
 });
 
-// Mock Premium Package class
 class PremiumPackage {
   final String identifier;
   final String priceString;

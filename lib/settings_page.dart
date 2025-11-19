@@ -399,83 +399,287 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
   
   void _showDurationPicker({
-    required String title,
-    required int currentValue,
-    required Function(int) onChanged,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTheme.radius24),
-        ),
+  required String title,
+  required int currentValue,
+  required Function(int) onChanged,
+}) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppTheme.radius24),
       ),
-      builder: (context) {
-        int selectedValue = currentValue;
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Container(
-              padding: const EdgeInsets.all(AppTheme.spacing20),
-              height: 300,
-              child: Column(
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.headlineSmall,
+    ),
+    builder: (context) {
+      // Saat ve dakikayı ayır
+      int selectedHours = currentValue ~/ 60;
+      int selectedMinutes = currentValue % 60;
+      
+      final hoursController = FixedExtentScrollController(initialItem: selectedHours);
+      final minutesController = FixedExtentScrollController(initialItem: selectedMinutes);
+      
+      return StatefulBuilder(
+        builder: (context, setState) {
+          final theme = Theme.of(context);
+          
+          return Container(
+            padding: const EdgeInsets.all(AppTheme.spacing20),
+            height: 380,
+            child: Column(
+              children: [
+                // Drag Handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: AppTheme.spacing16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(height: AppTheme.spacing20),
-                  Expanded(
-                    child: CupertinoPicker(
-                      itemExtent: 40,
-                      scrollController: FixedExtentScrollController(
-                        initialItem: currentValue - 1,
+                ),
+                
+                // Title
+                Text(
+                  title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                
+                const SizedBox(height: AppTheme.spacing8),
+                
+                // Current Value Display
+                Text(
+                  _formatDurationDisplay(selectedHours, selectedMinutes),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                
+                const SizedBox(height: AppTheme.spacing20),
+                
+                // Duration Picker - Sol Saat, Sağ Dakika
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(AppTheme.radius16),
+                      border: Border.all(
+                        color: theme.colorScheme.outline.withOpacity(0.2),
+                        width: 1,
                       ),
-                      onSelectedItemChanged: (index) {
-                        setState(() {
-                          selectedValue = index + 1;
-                        });
-                      },
-                      children: List.generate(
-                        60,
-                        (index) => Center(
-                          child: Text(
-                            '${index + 1} minutes',
-                            style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    child: Row(
+                      children: [
+                        // Hours Picker (Sol)
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: AppTheme.spacing12),
+                                child: Text(
+                                  'Hours',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: CupertinoPicker(
+                                  scrollController: hoursController,
+                                  itemExtent: 40,
+                                  backgroundColor: Colors.transparent,
+                                  onSelectedItemChanged: (index) {
+                                    setState(() {
+                                      selectedHours = index;
+                                    });
+                                  },
+                                  selectionOverlay: Container(
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: AppTheme.primaryColor.withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                        bottom: BorderSide(
+                                          color: AppTheme.primaryColor.withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  children: List<Widget>.generate(24, (index) {
+                                    return Center(
+                                      child: Text(
+                                        index.toString().padLeft(2, '0'),
+                                        style: theme.textTheme.titleLarge?.copyWith(
+                                          color: selectedHours == index 
+                                              ? AppTheme.primaryColor 
+                                              : theme.colorScheme.onSurface,
+                                          fontWeight: selectedHours == index 
+                                              ? FontWeight.bold 
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                        
+                        // Separator
+                        SizedBox(
+                          width: 40,
+                          child: Center(
+                            child: Text(
+                              ':',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        // Minutes Picker (Sağ)
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: AppTheme.spacing12),
+                                child: Text(
+                                  'Minutes',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: CupertinoPicker(
+                                  scrollController: minutesController,
+                                  itemExtent: 40,
+                                  backgroundColor: Colors.transparent,
+                                  onSelectedItemChanged: (index) {
+                                    setState(() {
+                                      selectedMinutes = index;
+                                    });
+                                  },
+                                  selectionOverlay: Container(
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: AppTheme.primaryColor.withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                        bottom: BorderSide(
+                                          color: AppTheme.primaryColor.withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  children: List<Widget>.generate(60, (index) {
+                                    return Center(
+                                      child: Text(
+                                        index.toString().padLeft(2, '0'),
+                                        style: theme.textTheme.titleLarge?.copyWith(
+                                          color: selectedMinutes == index 
+                                              ? AppTheme.primaryColor 
+                                              : theme.colorScheme.onSurface,
+                                          fontWeight: selectedMinutes == index 
+                                              ? FontWeight.bold 
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: AppTheme.spacing20),
+                
+                // Save Button
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radius12),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.spacing12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Toplam dakikayı hesapla
+                          final totalMinutes = (selectedHours * 60) + selectedMinutes;
+                          // En az 1 dakika olmalı
+                          if (totalMinutes > 0) {
+                            onChanged(totalMinutes);
+                            Navigator.pop(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Duration must be at least 1 minute'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radius12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Save',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppTheme.spacing20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
-                      ),
-                      const SizedBox(width: AppTheme.spacing16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            onChanged(selectedValue);
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Save'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+// Helper method - Settings Page'e ekleyin
+String _formatDurationDisplay(int hours, int minutes) {
+  if (hours == 0) {
+    return '$minutes minutes';
+  } else if (minutes == 0) {
+    return '$hours ${hours == 1 ? 'hour' : 'hours'}';
+  } else {
+    return '$hours ${hours == 1 ? 'hr' : 'hrs'} $minutes min';
   }
+}
   
   void _showNumberPicker({
     required String title,

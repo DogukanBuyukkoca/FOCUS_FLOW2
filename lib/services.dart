@@ -24,6 +24,7 @@ class StorageService {
     _preferencesBox = await Hive.openBox('preferences');
     _sessionsBox = await Hive.openBox('sessions');
     _goalsBox = await Hive.openBox<Goal>('goals');
+    await Hive.openBox('space_progress');
   }
   
   // Goals Operations

@@ -34,9 +34,9 @@ void main() async {
   
   // Initialize Hive
   await Hive.initFlutter();
-  await StorageServices.initialize();
-  await StorageService.init();
   
+  await StorageService.init();
+
   // Initialize Notifications
   await NotificationService.init();
   

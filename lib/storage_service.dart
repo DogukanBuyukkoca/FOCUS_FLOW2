@@ -5,14 +5,21 @@ import 'hive_adapters.dart';
 class StorageServices {
   static const String goalsBoxName = 'goals';
   static const String settingsBoxName = 'settings';
-  
+  static late Box _preferencesBox;
+  static late Box _sessionsBox;
+  static late Box _goalsBox;
    static late Box<Goal> goalsBox;
    static late Box settingsBox;
   
   // Initialize Hive and register adapters
   static Future<void> initialize() async {
     await Hive.initFlutter();
+    _preferencesBox = await Hive.openBox('preferences');
+    _sessionsBox = await Hive.openBox('sessions');
+    _goalsBox = await Hive.openBox('goals');
     
+    // YENİ: Uzay ilerleme box'ı
+    await Hive.openBox('space_progress');
     // Register adapters
     if (!Hive.isAdapterRegistered(0)) {
       Hive.registerAdapter(GoalAdapter());

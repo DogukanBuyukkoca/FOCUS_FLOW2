@@ -406,54 +406,168 @@ class _TimerPageState extends ConsumerState<TimerPage>
                 elevation: 0,
                 title: Row(
                   children: [
-                    // Deep Focus Switch
-                    Container(
+                    // Deep Focus Switch - Modern Design
+                    AnimatedContainer(
+                      duration: AppTheme.animBase,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.spacing8,
-                        vertical: AppTheme.spacing4,
+                        horizontal: AppTheme.spacing12,
+                        vertical: AppTheme.spacing8,
                       ),
                       decoration: BoxDecoration(
-                        color: _isDeepFocusEnabled
-                            ? AppTheme.primaryColor.withOpacity(0.1)
-                            : theme.colorScheme.surface.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(AppTheme.radius16),
-                        border: Border.all(
-                          color: _isDeepFocusEnabled
-                              ? AppTheme.primaryColor.withOpacity(0.3)
-                              : theme.colorScheme.outline.withOpacity(0.2),
-                          width: 1,
-                        ),
+                        gradient: _isDeepFocusEnabled
+                            ? LinearGradient(
+                                colors: [
+                                  const Color(0xFF6B4BA6).withOpacity(0.2),
+                                  const Color(0xFF4A3B7A).withOpacity(0.15),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: _isDeepFocusEnabled 
+                            ? null 
+                            : theme.colorScheme.surface.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(AppTheme.radius24),
+                        boxShadow: _isDeepFocusEnabled
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF6B4BA6).withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Transform.scale(
-                            scale: 0.8,
-                            child: Switch(
-                              value: _isDeepFocusEnabled,
-                              onChanged: (value) {
-                                HapticFeedback.lightImpact();
-                                if (value) {
-                                  _showDNDPermissionDialog();
-                                } else {
-                                  setState(() {
-                                    _isDeepFocusEnabled = false;
-                                  });
-                                }
-                              },
-                              activeColor: AppTheme.primaryColor,
-                              activeTrackColor: AppTheme.primaryColor.withOpacity(0.5),
+                          // Custom Switch with Crescent Moon
+                          GestureDetector(
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              if (!_isDeepFocusEnabled) {
+                                _showDNDPermissionDialog();
+                              } else {
+                                setState(() {
+                                  _isDeepFocusEnabled = false;
+                                });
+                              }
+                            },
+                            child: AnimatedContainer(
+                              duration: AppTheme.animBase,
+                              width: 52,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                gradient: _isDeepFocusEnabled
+                                    ? const LinearGradient(
+                                        colors: [
+                                          Color(0xFF6B4BA6),
+                                          Color(0xFF8B5FBF),
+                                        ],
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                      )
+                                    : LinearGradient(
+                                        colors: [
+                                          theme.colorScheme.outline.withOpacity(0.3),
+                                          theme.colorScheme.outline.withOpacity(0.2),
+                                        ],
+                                      ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: _isDeepFocusEnabled
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF6B4BA6).withOpacity(0.4),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Stack(
+                                children: [
+                                  // Stars background when enabled
+                                  if (_isDeepFocusEnabled)
+                                    Positioned.fill(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: CustomPaint(
+                                          painter: _StarsPainter(),
+                                        ),
+                                      ),
+                                    ),
+                                  // Toggle circle with crescent moon
+                                  AnimatedAlign(
+                                    duration: AppTheme.animBase,
+                                    curve: Curves.easeInOut,
+                                    alignment: _isDeepFocusEnabled
+                                        ? Alignment.centerRight
+                                        : Alignment.centerLeft,
+                                    child: Container(
+                                      width: 24,
+                                      height: 24,
+                                      margin: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.2),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: AnimatedSwitcher(
+                                          duration: AppTheme.animBase,
+                                          transitionBuilder: (child, animation) {
+                                            return RotationTransition(
+                                              turns: animation,
+                                              child: FadeTransition(
+                                                opacity: animation,
+                                                child: child,
+                                              ),
+                                            );
+                                          },
+                                          child: Icon(
+                                            _isDeepFocusEnabled
+                                                ? Icons.nightlight_round
+                                                : Icons.light_mode_rounded,
+                                            key: ValueKey(_isDeepFocusEnabled),
+                                            size: 14,
+                                            color: _isDeepFocusEnabled
+                                                ? const Color(0xFF6B4BA6)
+                                                : Colors.grey[400],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: AppTheme.spacing4),
+                          
+                          const SizedBox(width: AppTheme.spacing8),
+                          
+                          // Info Icon
                           GestureDetector(
                             onTap: _showDeepFocusInfo,
                             child: Container(
-                              padding: const EdgeInsets.all(2),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: _isDeepFocusEnabled
+                                    ? Colors.white.withOpacity(0.15)
+                                    : theme.colorScheme.surface.withOpacity(0.5),
+                                shape: BoxShape.circle,
+                              ),
                               child: Icon(
-                                Icons.help_outline_rounded,
-                                size: 18,
-                                color: theme.colorScheme.onSurface.withOpacity(0.4),
+                                Icons.info_outline_rounded,
+                                size: 16,
+                                color: _isDeepFocusEnabled
+                                    ? Colors.white.withOpacity(0.9)
+                                    : theme.colorScheme.onSurface.withOpacity(0.5),
                               ),
                             ),
                           ),
@@ -775,4 +889,30 @@ class _TimerPageState extends ConsumerState<TimerPage>
       ),
     );
   }
+}
+
+// Custom Painter for Stars Background
+class _StarsPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.3)
+      ..style = PaintingStyle.fill;
+
+    // Draw small stars
+    final stars = [
+      Offset(size.width * 0.2, size.height * 0.3),
+      Offset(size.width * 0.7, size.height * 0.2),
+      Offset(size.width * 0.5, size.height * 0.6),
+      Offset(size.width * 0.8, size.height * 0.7),
+      Offset(size.width * 0.3, size.height * 0.8),
+    ];
+
+    for (var star in stars) {
+      canvas.drawCircle(star, 1, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

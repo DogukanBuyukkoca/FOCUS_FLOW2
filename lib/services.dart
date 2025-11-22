@@ -4,7 +4,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'models.dart';
 import 'hive_adapters.dart';
 
-// Storage Service
+// ============================================================================
+// STORAGE SERVICE
+// ============================================================================
 class StorageService {
   static late Box _preferencesBox;
   static late Box _sessionsBox;
@@ -27,7 +29,9 @@ class StorageService {
     await Hive.openBox('space_progress');
   }
   
-  // Goals Operations
+  // ============================================================================
+  // GOALS OPERATIONS
+  // ============================================================================
   static Future<List<Goal>> getAllGoals() async {
     return _goalsBox.values.toList();
   }
@@ -52,6 +56,9 @@ class StorageService {
     await _goalsBox.clear();
   }
   
+  // ============================================================================
+  // ONBOARDING & USER PREFERENCES
+  // ============================================================================
   static Future<bool> isOnboardingComplete() async {
     return _preferencesBox.get('onboarding_complete', defaultValue: false);
   }
@@ -80,6 +87,9 @@ class StorageService {
     );
   }
   
+  // ============================================================================
+  // SESSIONS OPERATIONS
+  // ============================================================================
   static Future<int> getTodaySessionCount() async {
     final today = DateTime.now();
     final sessions = _sessionsBox.values.where((session) {
@@ -96,18 +106,12 @@ class StorageService {
     return 5; // Mock value
   }
   
-  static Future<void> saveSession({
-    required DateTime startTime,
-    required DateTime endTime,
-    required SessionType sessionType,
-    required bool wasCompleted,
-  }) async {
+  // Updated saveSession method - simplified signature
+  static Future<void> saveSession(DateTime date, int durationMinutes) async {
     await _sessionsBox.add({
-      'start_time': startTime.toIso8601String(),
-      'end_time': endTime.toIso8601String(),
-      'date': startTime.toIso8601String().split('T')[0],
-      'session_type': sessionType.toString(),
-      'completed': wasCompleted,
+      'date': date.toIso8601String().split('T')[0],
+      'duration_minutes': durationMinutes,
+      'timestamp': date.toIso8601String(),
     });
   }
   
@@ -132,17 +136,40 @@ class StorageService {
     await _preferencesBox.delete('checkpoint');
   }
   
-  // Settings storage methods
+  // ============================================================================
+  // SETTINGS OPERATIONS
+  // ============================================================================
+  static Future<Settings> getSettings() async {
+    return Settings(
+      focusDuration: _preferencesBox.get('focus_duration', defaultValue: 25),
+      shortBreakDuration: _preferencesBox.get('short_break_duration', defaultValue: 5),
+      longBreakDuration: _preferencesBox.get('long_break_duration', defaultValue: 15),
+      sessionsUntilLongBreak: _preferencesBox.get('sessions_until_long_break', defaultValue: 4),
+      autoStartBreaks: _preferencesBox.get('auto_start_breaks', defaultValue: false),
+      autoStartFocus: _preferencesBox.get('auto_start_focus', defaultValue: false),
+      soundEnabled: _preferencesBox.get('sound_enabled', defaultValue: true),
+      hapticEnabled: _preferencesBox.get('haptic_enabled', defaultValue: true),
+      notificationsEnabled: _preferencesBox.get('notifications_enabled', defaultValue: true),
+      dailyReminderTime: _preferencesBox.get('daily_reminder_time'),
+      darkMode: _preferencesBox.get('dark_mode', defaultValue: false),
+      isPremium: _preferencesBox.get('is_premium', defaultValue: false),
+    );
+  }
+  
   static Future<void> saveFocusDuration(int minutes) async {
-    await _preferencesBox.put('focus_minutes', minutes);
+    await _preferencesBox.put('focus_duration', minutes);
   }
   
   static Future<void> saveShortBreakDuration(int minutes) async {
-    await _preferencesBox.put('short_break_minutes', minutes);
+    await _preferencesBox.put('short_break_duration', minutes);
   }
   
   static Future<void> saveLongBreakDuration(int minutes) async {
-    await _preferencesBox.put('long_break_minutes', minutes);
+    await _preferencesBox.put('long_break_duration', minutes);
+  }
+  
+  static Future<void> saveSessionsUntilLongBreak(int sessions) async {
+    await _preferencesBox.put('sessions_until_long_break', sessions);
   }
   
   static Future<void> saveAutoStartBreaks(bool value) async {
@@ -173,45 +200,18 @@ class StorageService {
     }
   }
   
-  static Future<void> saveThemeMode(String mode) async {
-    await _preferencesBox.put('theme_mode', mode);
+  static Future<void> saveDarkMode(bool value) async {
+    await _preferencesBox.put('dark_mode', value);
   }
   
-  static Future<void> saveLocale(String languageCode) async {
-    await _preferencesBox.put('locale', languageCode);
-  }
-  
-  static Future<Settings> getSettings() async {
-    return Settings(
-      focusDuration: _preferencesBox.get('focus_minutes', defaultValue: 25),
-      shortBreakDuration: _preferencesBox.get('short_break_minutes', defaultValue: 5),
-      longBreakDuration: _preferencesBox.get('long_break_minutes', defaultValue: 15),
-      sessionsUntilLongBreak: _preferencesBox.get('sessions_until_long_break', defaultValue: 4),
-      autoStartBreaks: _preferencesBox.get('auto_start_breaks', defaultValue: false),
-      autoStartFocus: _preferencesBox.get('auto_start_focus', defaultValue: false),
-      soundEnabled: _preferencesBox.get('sound_enabled', defaultValue: true),
-      hapticEnabled: _preferencesBox.get('haptic_enabled', defaultValue: true),
-      notificationsEnabled: _preferencesBox.get('notifications_enabled', defaultValue: true),
-      dailyReminderTime: _preferencesBox.get('daily_reminder_time'),
-      isPremium: _preferencesBox.get('is_premium', defaultValue: false),
-    );
-  }
-  
-  static String getThemeMode() {
-    return _preferencesBox.get('theme_mode', defaultValue: 'system');
-  }
-  
-  static String getLocale() {
-    return _preferencesBox.get('locale', defaultValue: 'en');
-  }
-  
-  static Future<void> clearAllData() async {
-    await _preferencesBox.clear();
-    await _sessionsBox.clear();
+  static Future<void> saveIsPremium(bool value) async {
+    await _preferencesBox.put('is_premium', value);
   }
 }
 
-// Notification Service
+// ============================================================================
+// NOTIFICATION SERVICE
+// ============================================================================
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
@@ -219,9 +219,9 @@ class NotificationService {
   static Future<void> init() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
-      requestSoundPermission: true,
-      requestBadgePermission: true,
       requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
     );
     
     const initSettings = InitializationSettings(
@@ -229,37 +229,50 @@ class NotificationService {
       iOS: iosSettings,
     );
     
-    await _notifications.initialize(initSettings);
+    await _notifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (details) {
+        // Handle notification tap
+      },
+    );
+    
+    // Request permissions
+    await _requestPermissions();
   }
   
-  static Future<void> scheduleSessionComplete(Duration duration) async {
-    // final scheduledTime = DateTime.now().add(duration);
+  static Future<void> _requestPermissions() async {
+    final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     
-    const androidDetails = AndroidNotificationDetails(
-      'focus_flow_timer',
-      'Timer Notifications',
-      importance: Importance.high,
-      priority: Priority.high,
+    await androidPlugin?.requestNotificationsPermission();
+    
+    final iosPlugin = _notifications.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    
+    await iosPlugin?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  }
+  
+  static Future<void> scheduleReminder(String time) async {
+    final details = NotificationDetails(
+      android: const AndroidNotificationDetails(
+        'focus_flow_reminders',
+        'Daily Reminders',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+      iOS: const DarwinNotificationDetails(),
     );
     
-    const iosDetails = DarwinNotificationDetails();
-    
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-    
-    // Using zonedSchedule instead of deprecated schedule method
     await _notifications.show(
       1,
-      'Focus Session Complete!',
+      'Time to Focus!',
       'Great job! Time for a break.',
       details,
     );
-    
-    // Note: For actual scheduled notifications, you would need to use
-    // zonedSchedule with timezone package, but for simplicity we're using show
-    // which displays immediately. In production, implement proper scheduling.
   }
   
   static Future<void> showSessionComplete(SessionType type) async {
@@ -302,7 +315,9 @@ class NotificationService {
   }
 }
 
-// Audio Service
+// ============================================================================
+// AUDIO SERVICE
+// ============================================================================
 class AudioService {
   static void playStartSound() {
     // Implement sound playback
@@ -321,7 +336,9 @@ class AudioService {
   }
 }
 
-// App Constants
+// ============================================================================
+// APP CONSTANTS
+// ============================================================================
 class AppConstants {
   static const List<Locale> supportedLocales = [
     Locale('en'),

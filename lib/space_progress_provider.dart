@@ -1,14 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 // Space Progress Data Model
 class SpaceProgressData {
-  final int totalFocusSeconds;
-  final int unspentFocusSeconds;
-  final double totalDistanceLightYears;
-  final String currentRank;
-  final int currentStarIndex;
-  final List<String> unlockedStars;
+  final int totalFocusSeconds; // Hiç sıfırlanmayan toplam odaklanma süresi
+  final int unspentFocusSeconds; // Harcanmamış yakıt (launch'tan sonra sıfırlanır)
+  final double totalDistanceLightYears; // Toplam kat edilen mesafe
+  final String currentRank; // Mevcut rütbe
+  final int currentStarIndex; // Hangi yıldıza ulaşıldı
+  final List<String> unlockedStars; // Kilidi açılan yıldızlar
 
   SpaceProgressData({
     required this.totalFocusSeconds,
@@ -38,10 +39,10 @@ class SpaceProgressData {
   }
 }
 
-// Space Ranks based on total focus time (in hours)
+// Space Rank Model
 class SpaceRank {
   final String name;
-  final int requiredHours;
+  final double requiredHours;
   final String description;
 
   const SpaceRank({
@@ -51,32 +52,89 @@ class SpaceRank {
   });
 }
 
-// Space Literature inspired ranks
+// Rank sistemi (Uzay Edebiyatı referansları)
 const List<SpaceRank> spaceRanks = [
-  SpaceRank(name: 'Cadet', requiredHours: 0, description: 'Just beginning the journey'),
-  SpaceRank(name: 'Pilot', requiredHours: 10, description: 'Learning the basics'),
-  SpaceRank(name: 'Navigator', requiredHours: 25, description: 'Charting the course'),
-  SpaceRank(name: 'Lieutenant', requiredHours: 50, description: 'Gaining experience'),
-  SpaceRank(name: 'Commander', requiredHours: 100, description: 'Leading missions'),
-  SpaceRank(name: 'Captain', requiredHours: 200, description: 'Master of the ship'),
-  SpaceRank(name: 'Commodore', requiredHours: 350, description: 'Fleet leadership'),
-  SpaceRank(name: 'Admiral', requiredHours: 500, description: 'Strategic command'),
-  SpaceRank(name: 'Grand Admiral', requiredHours: 750, description: 'Supreme authority'),
-  SpaceRank(name: 'Fleet Marshal', requiredHours: 1000, description: 'Legendary status'),
-  SpaceRank(name: 'Star Lord', requiredHours: 1500, description: 'Cosmic mastery'),
-  SpaceRank(name: 'Celestial', requiredHours: 2000, description: 'Beyond mortal limits'),
+  SpaceRank(name: 'Cadet', requiredHours: 0, description: 'Yeni başlayan'),
+  SpaceRank(name: 'Ensign', requiredHours: 10, description: '10 saat odaklanma'),
+  SpaceRank(name: 'Lieutenant', requiredHours: 25, description: '25 saat odaklanma'),
+  SpaceRank(name: 'Commander', requiredHours: 50, description: '50 saat odaklanma'),
+  SpaceRank(name: 'Captain', requiredHours: 100, description: '100 saat odaklanma'),
+  SpaceRank(name: 'Admiral', requiredHours: 250, description: '250 saat odaklanma'),
+  SpaceRank(name: 'Fleet Admiral', requiredHours: 500, description: '500 saat odaklanma'),
 ];
 
-// Provider for space progress
+// Star System Model
+class StarSystem {
+  final String name;
+  final double distanceFromEarth; // Light years
+  final String spectralType;
+  final String description;
+  final int focusHoursRequired;
+
+  const StarSystem({
+    required this.name,
+    required this.distanceFromEarth,
+    required this.spectralType,
+    required this.description,
+    required this.focusHoursRequired,
+  });
+}
+
+// Yıldız sistemleri (1 saat = 0.1 light year)
+const List<StarSystem> starSystems = [
+  StarSystem(
+    name: 'Earth (Sol)',
+    distanceFromEarth: 0,
+    spectralType: 'G2V',
+    description: 'Our home in the cosmos',
+    focusHoursRequired: 0,
+  ),
+  StarSystem(
+    name: 'Proxima Centauri',
+    distanceFromEarth: 4.24,
+    spectralType: 'M5.5Ve',
+    description: 'En yakın yıldız - 42.4 saat odaklanma',
+    focusHoursRequired: 42,
+  ),
+  StarSystem(
+    name: 'Sirius',
+    distanceFromEarth: 8.6,
+    spectralType: 'A1V',
+    description: 'Gökyüzünün en parlak yıldızı - 86 saat',
+    focusHoursRequired: 86,
+  ),
+  StarSystem(
+    name: 'Vega',
+    distanceFromEarth: 25,
+    spectralType: 'A0Va',
+    description: 'Lyra takımyıldızı - 250 saat',
+    focusHoursRequired: 250,
+  ),
+  StarSystem(
+    name: 'Arcturus',
+    distanceFromEarth: 37,
+    spectralType: 'K0III',
+    description: 'Kırmızı dev yıldız - 370 saat',
+    focusHoursRequired: 370,
+  ),
+  StarSystem(
+    name: 'Betelgeuse',
+    distanceFromEarth: 642,
+    spectralType: 'M1-2Ia-ab',
+    description: 'Süper dev yıldız - 6420 saat',
+    focusHoursRequired: 6420,
+  ),
+];
+
+// Space Progress Provider
 final spaceProgressProvider = StateNotifierProvider<SpaceProgressNotifier, SpaceProgressData>((ref) {
-  return SpaceProgressNotifier(ref);
+  return SpaceProgressNotifier();
 });
 
 class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
-  final Ref ref;
   late Box _spaceBox;
 
-  SpaceProgressNotifier(this.ref) : super(SpaceProgressData(
+  SpaceProgressNotifier() : super(SpaceProgressData(
     totalFocusSeconds: 0,
     unspentFocusSeconds: 0,
     totalDistanceLightYears: 0.0,
@@ -112,7 +170,6 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
   String _calculateRank(int totalSeconds) {
     final totalHours = totalSeconds / 3600;
     
-    // Find the highest rank the user has achieved
     SpaceRank currentRank = spaceRanks.first;
     for (final rank in spaceRanks) {
       if (totalHours >= rank.requiredHours) {
@@ -125,7 +182,7 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
     return currentRank.name;
   }
 
-  // Add focus time (called when timer completes)
+  // Timer'dan her saniye çağrılacak - SADECE ekleme yapar
   Future<void> addFocusTime(int seconds) async {
     final newTotalSeconds = state.totalFocusSeconds + seconds;
     final newUnspentSeconds = state.unspentFocusSeconds + seconds;
@@ -137,21 +194,44 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
       currentRank: newRank,
     );
 
+    // Hive'a kaydet
     await _spaceBox.put('total_focus_seconds', newTotalSeconds);
     await _spaceBox.put('unspent_focus_seconds', newUnspentSeconds);
   }
 
-  // Consume fuel (launch button pressed)
-  Future<void> consumeFuel() async {
+  // Launch butonu için - Animasyonlu yakıt tüketimi
+  Future<void> consumeFuelAnimated(Function(int) onUpdate) async {
     if (state.unspentFocusSeconds <= 0) return;
 
-    // Convert time to distance: 1 hour = 0.1 light years
-    final hoursToConsume = state.unspentFocusSeconds / 3600.0;
+    final startingFuel = state.unspentFocusSeconds;
+    final hoursToConsume = startingFuel / 3600.0;
     final distanceToAdd = hoursToConsume * 0.1;
     
-    final newDistance = state.totalDistanceLightYears + distanceToAdd;
+    // 5 saniye boyunca animasyon (60 FPS = 300 frame)
+    const int totalFrames = 300;
+    const int frameDurationMs = 16; // ~60 FPS
     
-    // Check which star we've reached
+    for (int i = 0; i <= totalFrames; i++) {
+      await Future.delayed(const Duration(milliseconds: frameDurationMs));
+      
+      // Ease-out cubic easing function
+      double progress = i / totalFrames;
+      progress = 1 - (1 - progress) * (1 - progress) * (1 - progress);
+      
+      // Kalan yakıtı hesapla
+      int remainingFuel = (startingFuel * (1 - progress)).round();
+      
+      // State'i güncelle (sadece UI için, henüz Hive'a kaydetme)
+      state = state.copyWith(
+        unspentFocusSeconds: remainingFuel,
+      );
+      
+      // Callback ile UI'ı bilgilendir
+      onUpdate(remainingFuel);
+    }
+    
+    // Animasyon bittiğinde final değerleri kaydet
+    final newDistance = state.totalDistanceLightYears + distanceToAdd;
     final starData = _checkStarProgress(newDistance);
 
     state = state.copyWith(
@@ -161,6 +241,7 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
       unlockedStars: starData['unlocked'],
     );
 
+    // Hive'a son durumu kaydet
     await _spaceBox.put('unspent_focus_seconds', 0);
     await _spaceBox.put('total_distance_ly', newDistance);
     await _spaceBox.put('current_star_index', starData['index']);
@@ -188,7 +269,7 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
     };
   }
 
-  // Get next rank info
+  // Sonraki rütbeyi getir
   SpaceRank? getNextRank() {
     final currentHours = state.totalFocusSeconds / 3600;
     
@@ -198,38 +279,35 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
       }
     }
     
-    return null; // Maximum rank achieved
+    return null; // Maksimum rütbeye ulaşıldı
   }
 
-  // Get progress to next rank (0.0 to 1.0)
+  // Sonraki rütbeye ilerleme (0.0 - 1.0)
   double getProgressToNextRank() {
     final currentHours = state.totalFocusSeconds / 3600;
     
     SpaceRank? currentRankObj;
-    SpaceRank? nextRankObj;
+    SpaceRank? nextRank;
     
     for (int i = 0; i < spaceRanks.length; i++) {
       if (currentHours >= spaceRanks[i].requiredHours) {
         currentRankObj = spaceRanks[i];
-        if (i + 1 < spaceRanks.length) {
-          nextRankObj = spaceRanks[i + 1];
-        }
       } else {
+        nextRank = spaceRanks[i];
         break;
       }
     }
     
-    if (currentRankObj == null || nextRankObj == null) {
-      return 1.0; // Max rank
-    }
+    if (nextRank == null) return 1.0; // Maksimum rütbe
+    if (currentRankObj == null) return 0.0;
     
-    final progress = (currentHours - currentRankObj.requiredHours) /
-        (nextRankObj.requiredHours - currentRankObj.requiredHours);
+    final rangeHours = nextRank.requiredHours - currentRankObj.requiredHours;
+    final progressHours = currentHours - currentRankObj.requiredHours;
     
-    return progress.clamp(0.0, 1.0);
+    return (progressHours / rangeHours).clamp(0.0, 1.0);
   }
 
-  // Get current star system
+  // Mevcut yıldız sistemini getir
   StarSystem getCurrentStar() {
     if (state.currentStarIndex < starSystems.length) {
       return starSystems[state.currentStarIndex];
@@ -237,174 +315,23 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
     return starSystems.last;
   }
 
-  // Get next star system
+  // Sonraki yıldıza mesafe
   StarSystem? getNextStar() {
-    if (state.currentStarIndex + 1 < starSystems.length) {
-      return starSystems[state.currentStarIndex + 1];
+    if (state.currentStarIndex >= starSystems.length - 1) {
+      return null; // Son yıldızdasın
     }
-    return null;
+    return starSystems[state.currentStarIndex + 1];
   }
 
-  // Get progress to next star (0.0 to 1.0)
+  // Sonraki yıldıza ilerleme
   double getProgressToNextStar() {
-    final currentStar = getCurrentStar();
     final nextStar = getNextStar();
+    if (nextStar == null) return 1.0;
     
-    if (nextStar == null) {
-      return 1.0;
-    }
+    final currentStar = starSystems[state.currentStarIndex];
+    final range = nextStar.distanceFromEarth - currentStar.distanceFromEarth;
+    final progress = state.totalDistanceLightYears - currentStar.distanceFromEarth;
     
-    final progress = (state.totalDistanceLightYears - currentStar.distanceFromEarth) /
-        (nextStar.distanceFromEarth - currentStar.distanceFromEarth);
-    
-    return progress.clamp(0.0, 1.0);
+    return (progress / range).clamp(0.0, 1.0);
   }
 }
-
-// Star System Data Model
-class StarSystem {
-  final String name;
-  final double distanceFromEarth; // in light years
-  final String spectralType;
-  final String description;
-  final int focusHoursRequired;
-
-  const StarSystem({
-    required this.name,
-    required this.distanceFromEarth,
-    required this.spectralType,
-    required this.description,
-    required this.focusHoursRequired,
-  });
-}
-
-// Real astronomical data with focus time conversion
-// 1 Focus Hour = 0.1 Light Years
-const List<StarSystem> starSystems = [
-  StarSystem(
-    name: 'Earth (Sol)',
-    distanceFromEarth: 0,
-    spectralType: 'G2V',
-    description: 'Our home in the cosmos',
-    focusHoursRequired: 0,
-  ),
-  StarSystem(
-    name: 'Proxima Centauri',
-    distanceFromEarth: 4.24,
-    spectralType: 'M5.5Ve',
-    description: 'Closest star to our solar system',
-    focusHoursRequired: 42,
-  ),
-  StarSystem(
-    name: 'Barnard\'s Star',
-    distanceFromEarth: 5.96,
-    spectralType: 'M4Ve',
-    description: 'Second closest star system',
-    focusHoursRequired: 60,
-  ),
-  StarSystem(
-    name: 'Wolf 359',
-    distanceFromEarth: 7.86,
-    spectralType: 'M6V',
-    description: 'One of the faintest stars',
-    focusHoursRequired: 79,
-  ),
-  StarSystem(
-    name: 'Sirius',
-    distanceFromEarth: 8.6,
-    spectralType: 'A1V',
-    description: 'The brightest star in Earth\'s night sky',
-    focusHoursRequired: 86,
-  ),
-  StarSystem(
-    name: 'Epsilon Eridani',
-    distanceFromEarth: 10.5,
-    spectralType: 'K2V',
-    description: 'Sun-like star with planetary system',
-    focusHoursRequired: 105,
-  ),
-  StarSystem(
-    name: 'Tau Ceti',
-    distanceFromEarth: 11.9,
-    spectralType: 'G8V',
-    description: 'Similar to our Sun, potential habitable planets',
-    focusHoursRequired: 119,
-  ),
-  StarSystem(
-    name: 'Procyon',
-    distanceFromEarth: 11.46,
-    spectralType: 'F5IV-V',
-    description: 'Eighth brightest star in the night sky',
-    focusHoursRequired: 115,
-  ),
-  StarSystem(
-    name: 'Vega',
-    distanceFromEarth: 25.04,
-    spectralType: 'A0Va',
-    description: 'Brightest star in Lyra constellation',
-    focusHoursRequired: 250,
-  ),
-  StarSystem(
-    name: 'Altair',
-    distanceFromEarth: 16.73,
-    spectralType: 'A7V',
-    description: 'One of the vertices of the Summer Triangle',
-    focusHoursRequired: 167,
-  ),
-  StarSystem(
-    name: 'Fomalhaut',
-    distanceFromEarth: 25.13,
-    spectralType: 'A3V',
-    description: 'The loneliest star, has a debris disk',
-    focusHoursRequired: 251,
-  ),
-  StarSystem(
-    name: 'Arcturus',
-    distanceFromEarth: 36.7,
-    spectralType: 'K0III',
-    description: 'Fourth brightest star, red giant',
-    focusHoursRequired: 367,
-  ),
-  StarSystem(
-    name: 'Aldebaran',
-    distanceFromEarth: 65.3,
-    spectralType: 'K5III',
-    description: 'The eye of Taurus, orange giant',
-    focusHoursRequired: 653,
-  ),
-  StarSystem(
-    name: 'Pollux',
-    distanceFromEarth: 33.78,
-    spectralType: 'K0III',
-    description: 'Brighter twin of Gemini, has a planet',
-    focusHoursRequired: 338,
-  ),
-  StarSystem(
-    name: 'Betelgeuse',
-    distanceFromEarth: 548,
-    spectralType: 'M1-2Ia-ab',
-    description: 'Red supergiant in Orion, may go supernova',
-    focusHoursRequired: 5480,
-  ),
-  StarSystem(
-    name: 'Rigel',
-    distanceFromEarth: 860,
-    spectralType: 'B8Ia',
-    description: 'Blue supergiant, brightest star in Orion',
-    focusHoursRequired: 8600,
-  ),
-  StarSystem(
-    name: 'Antares',
-    distanceFromEarth: 550,
-    spectralType: 'M1.5Iab-Ib',
-    description: 'Red supergiant, heart of Scorpius',
-    focusHoursRequired: 5500,
-  ),
-  StarSystem(
-    name: 'Deneb',
-    distanceFromEarth: 2615,
-    spectralType: 'A2Ia',
-    description: 'One of the most luminous stars known',
-    focusHoursRequired: 26150,
-  ),
-];

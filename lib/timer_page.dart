@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:glass_kit/glass_kit.dart';
 import 'app_theme.dart';
+import 'timer_provider.dart';
 import 'widgets.dart';
 import 'providers.dart';
 import 'models.dart';
@@ -155,7 +156,9 @@ class _TimerPageState extends ConsumerState<TimerPage>
                         },
                         onSpecialPressed: () {
                           if (!timerState.isRunning) {
-                            ref.read(timerProvider.notifier).setSpecialSession();
+                            // Get the selected goal's ID
+                            final selectedGoal = ref.read(selectedGoalProvider);
+                            ref.read(timerProvider.notifier).setSpecialSession(selectedGoal?.id);
                           }
                         },
                       ).animate().fadeIn(delay: 100.ms),

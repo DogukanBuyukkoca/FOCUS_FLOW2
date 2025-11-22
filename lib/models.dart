@@ -14,6 +14,8 @@ class TimerState {
   final int todaysSessions;
   final int currentStreak;
   final bool isSpecialSession;
+  final String? selectedGoalId;
+  final int totalSessions;
 
   TimerState({
     required this.targetDuration,
@@ -26,6 +28,8 @@ class TimerState {
     required this.todaysSessions,
     required this.currentStreak,
     this.isSpecialSession = false,
+    this.selectedGoalId,
+    this.totalSessions = 0,
   });
 
   factory TimerState.initial() {
@@ -40,6 +44,8 @@ class TimerState {
       todaysSessions: 0,
       currentStreak: 0,
       isSpecialSession: false,
+      selectedGoalId: null,
+      totalSessions: 0,
     );
   }
 
@@ -54,6 +60,8 @@ class TimerState {
     int? todaysSessions,
     int? currentStreak,
     bool? isSpecialSession,
+    String? selectedGoalId,
+    int? totalSessions,
   }) {
     return TimerState(
       targetDuration: targetDuration ?? this.targetDuration,
@@ -66,15 +74,45 @@ class TimerState {
       todaysSessions: todaysSessions ?? this.todaysSessions,
       currentStreak: currentStreak ?? this.currentStreak,
       isSpecialSession: isSpecialSession ?? this.isSpecialSession,
+      selectedGoalId: selectedGoalId ?? this.selectedGoalId,
+      totalSessions: totalSessions ?? this.totalSessions,
     );
   }
 }
 
-// Enhanced Goals Models - Active filtresi kaldırıldı
+// Enhanced Goals Models
 enum GoalFilter { all, today, completed, thisWeek, overdue }
 enum GoalPriority { low, medium, high, urgent }
 enum GoalCategory { work, personal, health, education, finance, hobby, other }
 enum RepeatType { none, daily, weekly, monthly }
+
+class SubTask {
+  final String id;
+  final String title;
+  final bool isCompleted;
+  final DateTime? completedAt;
+
+  SubTask({
+    required this.id,
+    required this.title,
+    this.isCompleted = false,
+    this.completedAt,
+  });
+
+  SubTask copyWith({
+    String? id,
+    String? title,
+    bool? isCompleted,
+    DateTime? completedAt,
+  }) {
+    return SubTask(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      isCompleted: isCompleted ?? this.isCompleted,
+      completedAt: completedAt ?? this.completedAt,
+    );
+  }
+}
 
 class Goal {
   final String id;
@@ -181,9 +219,11 @@ class Goal {
   }
 
   Goal copyWith({
+    String? id,
     String? title,
     String? description,
     bool? isCompleted,
+    DateTime? createdAt,
     DateTime? completedAt,
     DateTime? dueDate,
     int? linkedSessions,
@@ -201,11 +241,11 @@ class Goal {
     int? actualMinutes,
   }) {
     return Goal(
-      id: id,
+      id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
       isCompleted: isCompleted ?? this.isCompleted,
-      createdAt: createdAt,
+      createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,
       dueDate: dueDate ?? this.dueDate,
       linkedSessions: linkedSessions ?? this.linkedSessions,
@@ -225,25 +265,31 @@ class Goal {
   }
 }
 
-class SubTask {
-  final String id;
-  final String title;
-  final bool isCompleted;
+// Session Model
+class Session {
+  final DateTime date;
+  final int durationMinutes;
+  final SessionType type;
+  final String? goalId;
 
-  SubTask({
-    required this.id,
-    required this.title,
-    this.isCompleted = false,
+  Session({
+    required this.date,
+    required this.durationMinutes,
+    this.type = SessionType.focus,
+    this.goalId,
   });
 
-  SubTask copyWith({
-    String? title,
-    bool? isCompleted,
+  Session copyWith({
+    DateTime? date,
+    int? durationMinutes,
+    SessionType? type,
+    String? goalId,
   }) {
-    return SubTask(
-      id: id,
-      title: title ?? this.title,
-      isCompleted: isCompleted ?? this.isCompleted,
+    return Session(
+      date: date ?? this.date,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      type: type ?? this.type,
+      goalId: goalId ?? this.goalId,
     );
   }
 }
@@ -281,7 +327,7 @@ class StatisticsData {
   });
 }
 
-// Settings Models
+// Settings Model
 class Settings {
   final int focusDuration;
   final int shortBreakDuration;
@@ -365,4 +411,38 @@ class UserPreferences {
       autoStartBreaks: autoStartBreaks ?? this.autoStartBreaks,
     );
   }
+}
+
+// Onboarding Page Data
+class OnboardingPageData {
+  final String title;
+  final String subtitle;
+  final IconData image;
+  final Color primaryColor;
+  final Color secondaryColor;
+  final bool isGoalSelection;
+
+  OnboardingPageData({
+    required this.title,
+    required this.subtitle,
+    required this.image,
+    required this.primaryColor,
+    required this.secondaryColor,
+    this.isGoalSelection = false,
+  });
+}
+
+// Premium Package Model
+class PremiumPackage {
+  final String identifier;
+  final String priceString;
+  final String title;
+  final String description;
+
+  PremiumPackage({
+    required this.identifier,
+    required this.priceString,
+    required this.title,
+    required this.description,
+  });
 }

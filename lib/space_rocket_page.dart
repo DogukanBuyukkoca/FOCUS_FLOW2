@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'space_progress_provider.dart';
 import 'timer_provider.dart';
+import 'models.dart'; // SessionType için
 
 class SpaceRocketPage extends ConsumerStatefulWidget {
   const SpaceRocketPage({super.key});
@@ -18,8 +19,11 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
   late AnimationController _launchController;
   late AnimationController _idleAnimationController;
   late AnimationController _thrusterController;
+  late AnimationController _fuelCountdownController;
   
   bool _isLaunching = false;
+  int _animatedFuelValue = 0;
+  double _animatedDistanceValue = 0.0;
 
   @override
   void initState() {
@@ -42,6 +46,12 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
       vsync: this,
       duration: const Duration(milliseconds: 150),
     )..repeat(reverse: true);
+    
+    // Fuel countdown animation controller
+    _fuelCountdownController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    );
   }
 
   @override
@@ -49,6 +59,7 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     _launchController.dispose();
     _idleAnimationController.dispose();
     _thrusterController.dispose();
+    _fuelCountdownController.dispose();
     super.dispose();
   }
 
@@ -69,13 +80,29 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     
     setState(() {
       _isLaunching = true;
+      _animatedFuelValue = spaceData.unspentFocusSeconds;
+      _animatedDistanceValue = spaceData.totalDistanceLightYears;
     });
 
+    // Calculate target distance
+    final hoursToConsume = spaceData.unspentFocusSeconds / 3600.0;
+    final distanceToAdd = hoursToConsume * 0.1;
+    final targetDistance = spaceData.totalDistanceLightYears + distanceToAdd;
+
     // Start launch animation
-    await _launchController.forward(from: 0);
+    _launchController.forward(from: 0);
     
-    // Consume fuel and update distance
-    await ref.read(spaceProgressProvider.notifier).consumeFuel();
+    // Animate fuel countdown and distance increase
+    await ref.read(spaceProgressProvider.notifier).consumeFuelAnimated((remainingFuel) {
+      if (mounted) {
+        setState(() {
+          _animatedFuelValue = remainingFuel;
+          // Distance artışını da animasyonla göster
+          double progress = 1 - (remainingFuel / spaceData.unspentFocusSeconds);
+          _animatedDistanceValue = spaceData.totalDistanceLightYears + (distanceToAdd * progress);
+        });
+      }
+    });
     
     setState(() {
       _isLaunching = false;
@@ -84,6 +111,17 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     _launchController.reset();
     
     HapticFeedback.mediumImpact();
+    
+    // Show completion message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Journey complete! Traveled ${distanceToAdd.toStringAsFixed(2)} light years!'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   @override
@@ -92,6 +130,10 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     final size = MediaQuery.of(context).size;
     final spaceData = ref.watch(spaceProgressProvider);
     final isFocusing = ref.watch(timerProvider).isRunning;
+    
+    // Use animated values during launch, otherwise use actual values
+    final displayFuel = _isLaunching ? _animatedFuelValue : spaceData.unspentFocusSeconds;
+    final displayDistance = _isLaunching ? _animatedDistanceValue : spaceData.totalDistanceLightYears;
     
     // Responsive sizing
     final isSmallScreen = size.width < 360;
@@ -105,11 +147,11 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
           _buildSpaceBackground(size),
           
           // Parallax layers
-          _buildParallaxLayers(size),
+          _buildParallaxLayers(size, _isLaunching),
           
           // Rocket
           Center(
-            child: _buildRocket(rocketSize, isFocusing),
+            child: _buildRocket(rocketSize, isFocusing || _isLaunching),
           ),
           
           // Top info bar - Responsive
@@ -136,19 +178,24 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
                     isSmallScreen,
                   ),
                   SizedBox(height: isSmallScreen ? 8 : 12),
-                  _buildInfoCard(
-                    'Distance Traveled',
-                    '${spaceData.totalDistanceLightYears.toStringAsFixed(2)} ly',
-                    Icons.flight_rounded,
-                    theme,
-                    isSmallScreen,
+                  AnimatedBuilder(
+                    animation: _launchController,
+                    builder: (context, child) {
+                      return _buildInfoCard(
+                        'Distance Traveled',
+                        '${displayDistance.toStringAsFixed(2)} ly',
+                        Icons.flight_rounded,
+                        theme,
+                        isSmallScreen,
+                      );
+                    },
                   ),
                 ],
               ),
             ),
           ),
           
-          // Bottom fuel display and launch button - Responsive with safe overflow
+          // Bottom fuel display and launch button
           Align(
             alignment: Alignment.bottomCenter,
             child: SafeArea(
@@ -157,117 +204,88 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Fuel display with constrained width
+                    // Fuel display with animation
                     ConstrainedBox(
                       constraints: BoxConstraints(
                         maxWidth: size.width - (isSmallScreen ? 32 : 48),
                       ),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 16 : 24,
-                          vertical: isSmallScreen ? 12 : 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: theme.colorScheme.primary.withOpacity(0.3),
-                            width: 2,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                'Available Fuel',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.7),
-                                  fontSize: isSmallScreen ? 12 : 14,
-                                ),
+                      child: AnimatedBuilder(
+                        animation: _launchController,
+                        builder: (context, child) {
+                          return Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 16 : 24,
+                              vertical: isSmallScreen ? 12 : 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: theme.colorScheme.primary.withOpacity(0.3),
+                                width: 2,
                               ),
                             ),
-                            SizedBox(height: isSmallScreen ? 4 : 8),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                _formatDuration(spaceData.unspentFocusSeconds),
-                                style: theme.textTheme.headlineLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                  fontSize: isSmallScreen ? 28 : 36,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    'Available Fuel',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                      fontSize: isSmallScreen ? 12 : 14,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                SizedBox(height: isSmallScreen ? 4 : 8),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    _formatDuration(displayFuel),
+                                    style: theme.textTheme.headlineLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: _isLaunching 
+                                          ? theme.colorScheme.secondary
+                                          : theme.colorScheme.primary,
+                                      fontSize: isSmallScreen ? 28 : 36,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ),
                     SizedBox(height: isSmallScreen ? 16 : 24),
                     
                     // Launch button
-                    AnimatedBuilder(
-                      animation: _launchController,
-                      builder: (context, child) {
-                        final scale = 1.0 + (_launchController.value * 0.2);
-                        return Transform.scale(
-                          scale: scale,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _isLaunching ? null : _handleLaunch,
-                              borderRadius: BorderRadius.circular(buttonSize / 2),
-                              child: Container(
-                                width: buttonSize,
-                                height: buttonSize,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: spaceData.unspentFocusSeconds > 0
-                                        ? [
-                                            theme.colorScheme.primary,
-                                            theme.colorScheme.secondary,
-                                          ]
-                                        : [
-                                            Colors.grey.shade400,
-                                            Colors.grey.shade600,
-                                          ],
+                    SizedBox(
+                      width: buttonSize,
+                      height: buttonSize,
+                      child: FloatingActionButton(
+                        onPressed: _isLaunching ? null : _handleLaunch,
+                        backgroundColor: _isLaunching
+                            ? theme.colorScheme.surface
+                            : theme.colorScheme.primary,
+                        elevation: _isLaunching ? 0 : 8,
+                        child: _isLaunching
+                            ? SizedBox(
+                                width: buttonSize * 0.5,
+                                height: buttonSize * 0.5,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    theme.colorScheme.primary,
                                   ),
-                                  boxShadow: [
-                                    if (spaceData.unspentFocusSeconds > 0)
-                                      BoxShadow(
-                                        color: theme.colorScheme.primary.withOpacity(0.5),
-                                        blurRadius: 20,
-                                        spreadRadius: 2,
-                                      ),
-                                  ],
                                 ),
-                                child: Icon(
-                                  _isLaunching
-                                      ? Icons.rocket_launch_rounded
-                                      : Icons.flight_takeoff_rounded,
-                                  size: buttonSize * 0.45,
-                                  color: Colors.white,
-                                ),
+                              )
+                            : Icon(
+                                Icons.rocket_launch_rounded,
+                                size: buttonSize * 0.5,
+                                color: Colors.white,
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    SizedBox(height: isSmallScreen ? 4 : 8),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'LAUNCH',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
-                          fontSize: isSmallScreen ? 12 : 14,
-                        ),
                       ),
                     ),
                   ],
@@ -285,226 +303,165 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
       width: size.width,
       height: size.height,
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+        gradient: RadialGradient(
+          center: Alignment.center,
+          radius: 1.0,
           colors: [
-            Color(0xFF0A0E27),
-            Color(0xFF1A1F3A),
-            Color(0xFF2D1B4E),
+            Color(0xFF1a1a2e),
+            Color(0xFF0f0f1e),
+            Color(0xFF050510),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildParallaxLayers(Size size) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_launchController, _idleAnimationController]),
-      builder: (context, child) {
-        final launchOffset = _launchController.value * size.height * 2;
-        final idleOffset = math.sin(_idleAnimationController.value * math.pi) * 10;
-        
-        return Stack(
-          children: [
-            // Layer 1 - Far stars
-            _buildStarLayer(
-              size,
-              count: 50,
-              speed: 0.3,
-              launchOffset: launchOffset,
-              idleOffset: idleOffset,
-              minSize: 1,
-              maxSize: 2,
-            ),
-            
-            // Layer 2 - Mid stars
-            _buildStarLayer(
-              size,
-              count: 30,
-              speed: 0.6,
-              launchOffset: launchOffset,
-              idleOffset: idleOffset,
-              minSize: 2,
-              maxSize: 3,
-            ),
-            
-            // Layer 3 - Near stars
-            _buildStarLayer(
-              size,
-              count: 20,
-              speed: 1.0,
-              launchOffset: launchOffset,
-              idleOffset: idleOffset,
-              minSize: 3,
-              maxSize: 4,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildStarLayer(
-    Size size, {
-    required int count,
-    required double speed,
-    required double launchOffset,
-    required double idleOffset,
-    required double minSize,
-    required double maxSize,
-  }) {
-    final random = math.Random(count);
+  Widget _buildParallaxLayers(Size size, bool isLaunching) {
     return Stack(
-      children: List.generate(count, (index) {
-        final x = random.nextDouble() * size.width;
-        final baseY = random.nextDouble() * size.height;
-        final y = baseY + (launchOffset * speed) + idleOffset;
-        final starSize = minSize + random.nextDouble() * (maxSize - minSize);
-        final opacity = 0.3 + random.nextDouble() * 0.7;
-        
-        // Wrap stars around when they go off screen
-        final wrappedY = y % (size.height + 100) - 50;
-        
-        return Positioned(
-          left: x,
-          top: wrappedY,
-          child: Container(
-            width: starSize,
-            height: starSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(opacity),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.white.withOpacity(opacity * 0.5),
-                  blurRadius: starSize * 2,
-                ),
-              ],
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildRocket(double size, bool isFocusing) {
-    return AnimatedBuilder(
-      animation: _idleAnimationController,
-      builder: (context, child) {
-        final wobble = math.sin(_idleAnimationController.value * math.pi * 2) * 5;
-        return Transform.translate(
-          offset: Offset(wobble, math.sin(_idleAnimationController.value * math.pi) * 10),
-          child: Transform.rotate(
-            angle: wobble * 0.01,
-            child: SizedBox(
-              width: size,
-              height: size * 1.5,
-              child: Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  // Thrusters (bottom)
-                  if (isFocusing || _isLaunching)
-                    Positioned(
-                      bottom: -size * 0.2,
-                      child: _buildThrusters(size * 0.6),
-                    ),
-                  
-                  // Rocket body
-                  CustomPaint(
-                    size: Size(size, size * 1.5),
-                    painter: RocketPainter(
-                      isActive: isFocusing,
-                    ),
-                  ),
-                  
-                  // Debris particles when not focusing
-                  if (!isFocusing && !_isLaunching)
-                    ..._buildDebrisParticles(size),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildThrusters(double width) {
-    return AnimatedBuilder(
-      animation: _thrusterController,
-      builder: (context, child) {
-        final intensity = 0.8 + (_thrusterController.value * 0.2);
-        final scale = 1.0 + (_launchController.value * 2);
-        
-        return Transform.scale(
-          scale: scale,
-          child: SizedBox(
-            width: width,
-            height: width * 1.5,
-            child: CustomPaint(
-              painter: ThrusterPainter(intensity: intensity),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  List<Widget> _buildDebrisParticles(double rocketSize) {
-    final random = math.Random(42);
-    return List.generate(5, (index) {
-      final angle = (index / 5) * 2 * math.pi;
-      final distance = rocketSize * 0.8 + (random.nextDouble() * rocketSize * 0.4);
-      final x = math.cos(angle) * distance;
-      final y = math.sin(angle) * distance;
-      final particleSize = 4.0 + random.nextDouble() * 6;
-      
-      return Positioned(
-        left: rocketSize / 2 + x,
-        top: rocketSize * 0.75 + y,
-        child: AnimatedBuilder(
-          animation: _idleAnimationController,
+      children: [
+        // Layer 1 - Far stars
+        AnimatedBuilder(
+          animation: _launchController,
           builder: (context, child) {
-            final float = math.sin(
-              (_idleAnimationController.value + index * 0.2) * math.pi * 2
-            ) * 15;
-            
+            final offset = isLaunching ? _launchController.value * size.height * 0.3 : 0.0;
             return Transform.translate(
-              offset: Offset(0, float),
-              child: Container(
-                width: particleSize,
-                height: particleSize,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.5),
-                  shape: BoxShape.circle,
-                ),
-              ),
+              offset: Offset(0, offset),
+              child: _buildStarLayer(size, 50, 1.0, 0.3),
             );
           },
         ),
-      );
-    });
+        
+        // Layer 2 - Mid stars
+        AnimatedBuilder(
+          animation: _launchController,
+          builder: (context, child) {
+            final offset = isLaunching ? _launchController.value * size.height * 0.6 : 0.0;
+            return Transform.translate(
+              offset: Offset(0, offset),
+              child: _buildStarLayer(size, 30, 2.0, 0.6),
+            );
+          },
+        ),
+        
+        // Layer 3 - Near stars
+        AnimatedBuilder(
+          animation: _launchController,
+          builder: (context, child) {
+            final offset = isLaunching ? _launchController.value * size.height * 0.9 : 0.0;
+            return Transform.translate(
+              offset: Offset(0, offset),
+              child: _buildStarLayer(size, 20, 3.0, 1.0),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStarLayer(Size size, int count, double maxSize, double opacity) {
+    return SizedBox(
+      width: size.width,
+      height: size.height,
+      child: CustomPaint(
+        painter: _StarPainter(
+          count: count,
+          maxSize: maxSize,
+          opacity: opacity,
+          seed: count,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRocket(double size, bool isActive) {
+    return AnimatedBuilder(
+      animation: _idleAnimationController,
+      builder: (context, child) {
+        final float = math.sin(_idleAnimationController.value * math.pi) * 8;
+        
+        return Transform.translate(
+          offset: Offset(0, float),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Rocket body
+              Container(
+                width: size,
+                height: size * 1.5,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.grey[300]!,
+                      Colors.grey[400]!,
+                      Colors.grey[500]!,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(size * 0.5),
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.rocket_rounded,
+                    size: size * 0.6,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              
+              // Thrusters (active when focusing or launching)
+              if (isActive)
+                AnimatedBuilder(
+                  animation: _thrusterController,
+                  builder: (context, child) {
+                    final flicker = 0.7 + (_thrusterController.value * 0.3);
+                    return Opacity(
+                      opacity: flicker,
+                      child: Container(
+                        width: size * 0.6,
+                        height: size * 0.8,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.orange.withOpacity(0.9),
+                              Colors.deepOrange.withOpacity(0.7),
+                              Colors.red.withOpacity(0.3),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildInfoCard(
-    String label,
+    String title,
     String value,
     IconData icon,
     ThemeData theme,
-    bool isSmallScreen,
+    bool isSmall,
   ) {
     return Container(
-      constraints: BoxConstraints(
-        maxWidth: isSmallScreen ? 180 : 220,
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmall ? 12 : 16,
+        vertical: isSmall ? 8 : 12,
       ),
-      padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.8),
+        color: theme.colorScheme.surface.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: theme.colorScheme.primary.withOpacity(0.3),
+          color: theme.colorScheme.primary.withOpacity(0.2),
         ),
       ),
       child: Row(
@@ -512,41 +469,29 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
         children: [
           Icon(
             icon,
+            size: isSmall ? 18 : 22,
             color: theme.colorScheme.primary,
-            size: isSmallScreen ? 18 : 20,
           ),
-          SizedBox(width: isSmallScreen ? 6 : 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontSize: isSmallScreen ? 10 : 11,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          SizedBox(width: isSmall ? 8 : 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  fontSize: isSmall ? 10 : 12,
                 ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    value,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: isSmallScreen ? 12 : 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+              ),
+              Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: isSmall ? 14 : 16,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -568,148 +513,37 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
   }
 }
 
-// Custom Painter for Rocket
-class RocketPainter extends CustomPainter {
-  final bool isActive;
+// Star painter for parallax effect
+class _StarPainter extends CustomPainter {
+  final int count;
+  final double maxSize;
+  final double opacity;
+  final int seed;
 
-  RocketPainter({required this.isActive});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-
-    // Main body - gradient
-    final bodyRect = Rect.fromLTWH(
-      size.width * 0.3,
-      size.height * 0.2,
-      size.width * 0.4,
-      size.height * 0.6,
-    );
-    
-    paint.shader = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: isActive
-          ? [Colors.blue.shade300, Colors.blue.shade700]
-          : [Colors.grey.shade400, Colors.grey.shade700],
-    ).createShader(bodyRect);
-    
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bodyRect, const Radius.circular(10)),
-      paint,
-    );
-
-    // Nose cone
-    paint.shader = null;
-    paint.color = isActive ? Colors.red.shade400 : Colors.grey.shade600;
-    
-    final nosePath = Path()
-      ..moveTo(size.width * 0.3, size.height * 0.2)
-      ..lineTo(size.width * 0.5, size.height * 0.05)
-      ..lineTo(size.width * 0.7, size.height * 0.2)
-      ..close();
-    
-    canvas.drawPath(nosePath, paint);
-
-    // Windows
-    paint.color = isActive ? Colors.cyan.shade300 : Colors.grey.shade500;
-    canvas.drawCircle(
-      Offset(size.width * 0.5, size.height * 0.35),
-      size.width * 0.08,
-      paint,
-    );
-    
-    canvas.drawCircle(
-      Offset(size.width * 0.5, size.height * 0.5),
-      size.width * 0.08,
-      paint,
-    );
-
-    // Fins
-    paint.color = isActive ? Colors.red.shade600 : Colors.grey.shade700;
-    
-    final leftFin = Path()
-      ..moveTo(size.width * 0.3, size.height * 0.7)
-      ..lineTo(size.width * 0.1, size.height * 0.85)
-      ..lineTo(size.width * 0.3, size.height * 0.8)
-      ..close();
-    
-    canvas.drawPath(leftFin, paint);
-    
-    final rightFin = Path()
-      ..moveTo(size.width * 0.7, size.height * 0.7)
-      ..lineTo(size.width * 0.9, size.height * 0.85)
-      ..lineTo(size.width * 0.7, size.height * 0.8)
-      ..close();
-    
-    canvas.drawPath(rightFin, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant RocketPainter oldDelegate) {
-    return oldDelegate.isActive != isActive;
-  }
-}
-
-// Custom Painter for Thrusters
-class ThrusterPainter extends CustomPainter {
-  final double intensity;
-
-  ThrusterPainter({required this.intensity});
+  _StarPainter({
+    required this.count,
+    required this.maxSize,
+    required this.opacity,
+    required this.seed,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(opacity)
+      ..style = PaintingStyle.fill;
 
-    // Main flame
-    final flameGradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        Colors.white,
-        Colors.yellow.shade400,
-        Colors.orange.shade600,
-        Colors.red.shade700,
-      ],
-    );
-
-    paint.shader = flameGradient.createShader(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-    );
-
-    final flamePath = Path()
-      ..moveTo(size.width * 0.35, 0)
-      ..quadraticBezierTo(
-        size.width * 0.2,
-        size.height * 0.3 * intensity,
-        size.width * 0.3,
-        size.height * 0.6 * intensity,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.4,
-        size.height * 0.8 * intensity,
-        size.width * 0.5,
-        size.height * intensity,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.6,
-        size.height * 0.8 * intensity,
-        size.width * 0.7,
-        size.height * 0.6 * intensity,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.8,
-        size.height * 0.3 * intensity,
-        size.width * 0.65,
-        0,
-      )
-      ..close();
-
-    canvas.drawPath(flamePath, paint);
+    final random = math.Random(seed);
+    
+    for (int i = 0; i < count; i++) {
+      final x = random.nextDouble() * size.width;
+      final y = random.nextDouble() * size.height;
+      final starSize = random.nextDouble() * maxSize + 0.5;
+      
+      canvas.drawCircle(Offset(x, y), starSize, paint);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant ThrusterPainter oldDelegate) {
-    return oldDelegate.intensity != intensity;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:glass_kit/glass_kit.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'app_theme.dart';
 import 'timer_provider.dart';
 import 'widgets.dart';
@@ -21,6 +22,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _scaleController;
+  bool _isDeepFocusEnabled = false;
 
   @override
   void initState() {
@@ -76,6 +78,294 @@ class _TimerPageState extends ConsumerState<TimerPage>
     return '$minutes:$seconds';
   }
 
+  Future<void> _showDNDPermissionDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radius24),
+          ),
+          backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.spacing24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppTheme.primaryGradient,
+                  ),
+                  child: const Icon(
+                    Icons.do_not_disturb_on_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                
+                const SizedBox(height: AppTheme.spacing16),
+                
+                // Title
+                Text(
+                  'Deep Focus Mode',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: AppTheme.spacing12),
+                
+                // Message
+                Text(
+                  'Do you want to enable Do Not Disturb for better focus?',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: AppTheme.spacing24),
+                
+                // Buttons
+                Row(
+                  children: [
+                    // Deny Button
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppTheme.spacing12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radius16),
+                          ),
+                          side: BorderSide(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
+                        child: const Text('Don\'t Allow'),
+                      ),
+                    ),
+                    
+                    const SizedBox(width: AppTheme.spacing12),
+                    
+                    // Allow Button
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.primaryGradient,
+                          borderRadius: BorderRadius.circular(AppTheme.radius16),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppTheme.spacing12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppTheme.radius16),
+                            ),
+                          ),
+                          child: const Text(
+                            'Allow',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result == true) {
+      await _requestDNDPermission();
+    } else {
+      setState(() {
+        _isDeepFocusEnabled = false;
+      });
+    }
+  }
+
+  Future<void> _requestDNDPermission() async {
+    try {
+      final status = await Permission.accessNotificationPolicy.request();
+      
+      if (status.isGranted) {
+        setState(() {
+          _isDeepFocusEnabled = true;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Deep Focus Mode enabled! 2X fuel boost active 🚀'),
+              backgroundColor: AppTheme.primaryColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radius16),
+              ),
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _isDeepFocusEnabled = false;
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Permission denied. Deep Focus Mode disabled.'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radius16),
+              ),
+              action: SnackBarAction(
+                label: 'Settings',
+                textColor: Colors.white,
+                onPressed: () {
+                  openAppSettings();
+                },
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isDeepFocusEnabled = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radius16),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showDeepFocusInfo() {
+    HapticFeedback.lightImpact();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radius24),
+          ),
+          backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.spacing24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppTheme.primaryGradient,
+                  ),
+                  child: const Icon(
+                    Icons.info_outline_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                
+                const SizedBox(height: AppTheme.spacing16),
+                
+                // Title
+                Text(
+                  'Deep Focus Boost',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: AppTheme.spacing12),
+                
+                // Info Text
+                Text(
+                  'When Deep Focus mode is active, every second of focused time adds 2X fuel to your space rocket!',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: AppTheme.spacing24),
+                
+                // Close Button
+                SizedBox(
+                  width: double.infinity,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(AppTheme.radius16),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppTheme.spacing12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radius16),
+                        ),
+                      ),
+                      child: const Text(
+                        'Got it!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final timerState = ref.watch(timerProvider);
@@ -114,15 +404,79 @@ class _TimerPageState extends ConsumerState<TimerPage>
                 floating: true,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                title: Text(
-                  'Focus Flow',
-                  style: theme.textTheme.headlineLarge?.copyWith(
-                    foreground: Paint()
-                      ..shader = AppTheme.primaryGradient.createShader(
-                        const Rect.fromLTWH(0.0, 0.0, 200.0, 70.0),
+                title: Row(
+                  children: [
+                    // Deep Focus Switch
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spacing8,
+                        vertical: AppTheme.spacing4,
                       ),
-                  ),
-                ).animate().fadeIn(duration: AppTheme.animSlow),
+                      decoration: BoxDecoration(
+                        color: _isDeepFocusEnabled
+                            ? AppTheme.primaryColor.withOpacity(0.1)
+                            : theme.colorScheme.surface.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(AppTheme.radius16),
+                        border: Border.all(
+                          color: _isDeepFocusEnabled
+                              ? AppTheme.primaryColor.withOpacity(0.3)
+                              : theme.colorScheme.outline.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Transform.scale(
+                            scale: 0.8,
+                            child: Switch(
+                              value: _isDeepFocusEnabled,
+                              onChanged: (value) {
+                                HapticFeedback.lightImpact();
+                                if (value) {
+                                  _showDNDPermissionDialog();
+                                } else {
+                                  setState(() {
+                                    _isDeepFocusEnabled = false;
+                                  });
+                                }
+                              },
+                              activeColor: AppTheme.primaryColor,
+                              activeTrackColor: AppTheme.primaryColor.withOpacity(0.5),
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.spacing4),
+                          GestureDetector(
+                            onTap: _showDeepFocusInfo,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              child: Icon(
+                                Icons.help_outline_rounded,
+                                size: 18,
+                                color: theme.colorScheme.onSurface.withOpacity(0.4),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(width: AppTheme.spacing12),
+                    
+                    // Focus Flow Title
+                    Expanded(
+                      child: Text(
+                        'Focus Flow',
+                        style: theme.textTheme.headlineLarge?.copyWith(
+                          foreground: Paint()
+                            ..shader = AppTheme.primaryGradient.createShader(
+                              const Rect.fromLTWH(0.0, 0.0, 200.0, 70.0),
+                            ),
+                        ),
+                      ).animate().fadeIn(duration: AppTheme.animSlow),
+                    ),
+                  ],
+                ),
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.history_rounded),
@@ -150,18 +504,15 @@ class _TimerPageState extends ConsumerState<TimerPage>
                         selectedType: timerState.sessionType,
                         isSpecialSelected: timerState.isSpecialSession,
                         onTypeChanged: (type) {
-                          if (!timerState.isRunning) {
-                            ref.read(timerProvider.notifier).changeSessionType(type);
-                          }
+                          HapticFeedback.selectionClick();
+                          ref.read(timerProvider.notifier).changeSessionType(type);
                         },
                         onSpecialPressed: () {
-                          if (!timerState.isRunning) {
-                            // Get the selected goal's ID
-                            final selectedGoal = ref.read(selectedGoalProvider);
-                            ref.read(timerProvider.notifier).setSpecialSession(selectedGoal?.id);
-                          }
+                          HapticFeedback.mediumImpact();
+                          final selectedGoal = ref.read(selectedGoalProvider);
+                          ref.read(timerProvider.notifier).setSpecialSession(selectedGoal?.id);
                         },
-                      ).animate().fadeIn(delay: 100.ms),
+                      ).animate().fadeIn().slideY(begin: -0.1),
                       
                       const SizedBox(height: AppTheme.spacing32),
                       
@@ -169,7 +520,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                       Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Glow effect when running
+                          // Outer glow
                           if (timerState.isRunning)
                             Container(
                               width: actualTimerSize + 40,
@@ -179,7 +530,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                                 boxShadow: [
                                   BoxShadow(
                                     color: AppTheme.primaryColor.withOpacity(0.3),
-                                    blurRadius: 30,
+                                    blurRadius: 60,
                                     spreadRadius: 10,
                                   ),
                                 ],
@@ -282,115 +633,70 @@ class _TimerPageState extends ConsumerState<TimerPage>
                             onPressed: _handleStartStop,
                             isRunning: timerState.isRunning,
                             size: 80,
-                          ).animate().fadeIn().scale(delay: 100.ms),
-                          
-                          if (timerState.isRunning)
-                            const SizedBox(width: AppTheme.spacing24),
-                          
-                          // Skip Button
-                          if (timerState.isRunning) _buildControlButton(
-                              onPressed: () {
-                                HapticFeedback.mediumImpact();
-                                ref.read(timerProvider.notifier).skip();
-                              },
-                              icon: Icons.skip_next_rounded,
-                              backgroundColor: theme.colorScheme.surface,
-                              iconColor: theme.colorScheme.secondary,
-                              size: 56,
-                            ).animate().fadeIn().scale(),
+                          ),
                         ],
                       ).animate().fadeIn(delay: 300.ms),
                       
                       const SizedBox(height: AppTheme.spacing32),
                       
-                      // Quick Stats
-                      Row(
-                        children: [
-                          Expanded(
-                            child: QuickStatsCard(
-                              title: 'Today',
-                              value: '${timerState.todaysSessions}',
-                              subtitle: 'sessions',
-                              icon: Icons.today_rounded,
-                              color: AppTheme.primaryColor,
-                            ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.2),
-                          ),
-                          const SizedBox(width: AppTheme.spacing12),
-                          Expanded(
-                            child: QuickStatsCard(
-                              title: 'Streak',
-                              value: '${timerState.currentStreak}',
-                              subtitle: 'days',
-                              icon: Icons.local_fire_department_rounded,
-                              color: AppTheme.secondaryColor,
-                            ).animate().fadeIn(delay: 500.ms).slideX(begin: 0.2),
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: AppTheme.spacing16),
-                      
-                      // Motivational Quote
+                      // Motivational Quote Card
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          // Responsive width calculation
-                          final containerWidth = constraints.maxWidth - (AppTheme.spacing16 * 2);
-                          
                           return Container(
-                            width: containerWidth,
-                            margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing8),
-                            child: GlassContainer(
-                              width: containerWidth,
-                              height: 120,
-                              padding: const EdgeInsets.all(AppTheme.spacing12),
+                            constraints: BoxConstraints(
+                              maxWidth: constraints.maxWidth > 600 
+                                  ? 500 
+                                  : constraints.maxWidth - 32,
+                            ),
+                            padding: const EdgeInsets.all(AppTheme.spacing20),
+                            decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.primaryColor.withOpacity(0.1),
-                                  AppTheme.secondaryColor.withOpacity(0.1),
-                                ],
+                                colors: isDark
+                                    ? [
+                                        AppTheme.darkSurface.withOpacity(0.6),
+                                        AppTheme.darkSurface.withOpacity(0.3),
+                                      ]
+                                    : [
+                                        Colors.white.withOpacity(0.8),
+                                        Colors.white.withOpacity(0.4),
+                                      ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
-                              borderGradient: LinearGradient(
-                                colors: [
-                                  AppTheme.primaryColor.withOpacity(0.2),
-                                  AppTheme.secondaryColor.withOpacity(0.2),
-                                ],
+                              borderRadius: BorderRadius.circular(AppTheme.radius24),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.1)
+                                    : Colors.black.withOpacity(0.05),
                               ),
-                              blur: 10,
-                              borderRadius: BorderRadius.circular(AppTheme.radius16),
-                              elevation: 0,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.format_quote_rounded,
-                                    color: AppTheme.primaryColor,
-                                    size: 20,
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.format_quote_rounded,
+                                  color: AppTheme.primaryColor,
+                                  size: 32,
+                                ),
+                                const SizedBox(height: AppTheme.spacing12),
+                                Text(
+                                  '"The secret of getting ahead is getting started."',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 13,
                                   ),
-                                  const SizedBox(height: AppTheme.spacing4),
-                                  Flexible(
-                                    child: Text(
-                                      '"The secret to getting ahead is getting started."',
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        fontStyle: FontStyle.italic,
-                                        fontSize: 13,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: AppTheme.spacing4),
+                                Text(
+                                  '- Mark Twain',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 11,
                                   ),
-                                  const SizedBox(height: AppTheme.spacing4),
-                                  Text(
-                                    '- Mark Twain',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontSize: 11,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
                             ),
                           );
                         },

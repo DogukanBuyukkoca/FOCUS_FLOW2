@@ -425,7 +425,7 @@ class _StarMapPageState extends ConsumerState<StarMapPage>
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      _formatDuration(timeFromPrevious),
+                      _formatDuration(star.focusSecondsRequired),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: isUnlocked
@@ -506,15 +506,6 @@ class _StarMapPageState extends ConsumerState<StarMapPage>
                 'Spectral Type',
                 star.spectralType,
                 Icons.wb_sunny_rounded,
-                theme,
-                isSmallScreen,
-              ),
-              SizedBox(height: isSmallScreen ? 8 : 12),
-              
-              _buildDetailRow(
-                'Focus Time Required',
-                _formatDuration(timeFromPrevious),
-                Icons.timer_rounded,
                 theme,
                 isSmallScreen,
               ),

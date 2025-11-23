@@ -219,7 +219,7 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
                                 Icon(
                                   Icons.local_fire_department_rounded,
                                   color: theme.colorScheme.primary,
-                                  size: isSmallScreen ? 28 : 32,
+                                  size: isSmallScreen ? 34 : 50,
                                 ),
                                 SizedBox(width: isSmallScreen ? 12 : 16),
                                 Flexible(
@@ -382,11 +382,25 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Just the white rocket icon, 3x larger than before
-              Icon(
-                Icons.rocket_rounded,
-                size: size * 1.8, // 3x of the original 0.6 (0.6 * 3 = 1.8)
-                color: Colors.white,
+              // Gradient rocket icon - cyan to purple
+              ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF00E5FF), // Parlak Cyan - Burun
+                      Color(0xFF00B0FF), // Parlak Mavi - Gövde
+                      Color(0xFF7C4DFF), // Parlak Mor - Kuyruk
+                    ],
+                    stops: [0.0, 0.5, 1.0],
+                  ).createShader(bounds);
+                },
+                child: Icon(
+                  Icons.rocket_rounded,
+                  size: size * 1.8, // 3x of the original 0.6 (0.6 * 3 = 1.8)
+                  color: Colors.white, // Base color for shader mask
+                ),
               ),
               
               // Thrusters (active when focusing or launching)

@@ -91,7 +91,7 @@ class StarSystem {
 // Yıldız sistemleri - Progresif zorluk sistemi
 // Başlangıç: 30dk-2 saat
 // Orta: 3-8 saat  
-// İleri: 10-25 saat
+// İleri: 10-12 saat
 const List<StarSystem> starSystems = [
   StarSystem(
     name: 'Earth (Sol)',
@@ -103,109 +103,109 @@ const List<StarSystem> starSystems = [
     name: 'Moon',
     focusSecondsRequired: 1800, // 30 dakika
     spectralType: 'Satellite',
-    description: 'First small step - 30 minutes of focus',
+    description: 'First small step',
   ),
   StarSystem(
     name: 'Mars',
-    focusSecondsRequired: 5400, // 1.5 saat (90 dk)
+    focusSecondsRequired: 3600, // 1 saat
     spectralType: 'Red Planet',
-    description: 'The red frontier - 1.5 hours of dedication',
+    description: 'The red frontier',
   ),
   StarSystem(
     name: 'Jupiter',
-    focusSecondsRequired: 10800, // 3 saat
+    focusSecondsRequired: 5400, // 1.5 saat
     spectralType: 'Gas Giant',
-    description: 'Giant leap forward - 3 hours of focus',
+    description: 'Giant leap forward',
   ),
   StarSystem(
     name: 'Saturn',
-    focusSecondsRequired: 18000, // 5 saat
+    focusSecondsRequired: 7200, // 2 saat
     spectralType: 'Ringed Beauty',
-    description: 'Ring of discipline - 5 hours achieved',
+    description: 'Ring of discipline',
   ),
   StarSystem(
     name: 'Uranus',
-    focusSecondsRequired: 28800, // 8 saat
+    focusSecondsRequired: 10800, // 3 saat
     spectralType: 'Ice Giant',
-    description: 'Pushing boundaries - 8 hours conquered',
+    description: 'Pushing boundaries',
   ),
   StarSystem(
     name: 'Neptune',
-    focusSecondsRequired: 39600, // 11 saat
+    focusSecondsRequired: 12600, // 3.5 saat
     spectralType: 'Deep Blue',
-    description: 'Deep commitment - 11 hours of focus',
+    description: 'Deep commitment',
   ),
   StarSystem(
     name: 'Pluto',
-    focusSecondsRequired: 54000, // 15 saat
+    focusSecondsRequired: 14400, // 4 saat
     spectralType: 'Dwarf Planet',
-    description: 'Beyond the ordinary - 15 hours milestone',
+    description: 'Beyond the ordinary',
   ),
   StarSystem(
     name: 'Proxima Centauri',
-    focusSecondsRequired: 72000, // 20 saat
+    focusSecondsRequired: 18000, // 5 saat
     spectralType: 'M5.5Ve',
-    description: 'Nearest star reached - 20 hours of dedication',
+    description: 'Nearest star reached',
   ),
   StarSystem(
     name: 'Alpha Centauri A',
-    focusSecondsRequired: 93600, // 26 saat
+    focusSecondsRequired: 21600, // 6 saat
     spectralType: 'G2V',
-    description: 'Sister sun discovered - 26 hours achieved',
+    description: 'Sister sun discovered',
   ),
   StarSystem(
     name: 'Barnard\'s Star',
-    focusSecondsRequired: 108000, // 30 saat
+    focusSecondsRequired: 23400, // 6.5 saat
     spectralType: 'M4Ve',
-    description: 'Red dwarf mastered - 30 hours complete',
+    description: 'Red dwarf mastered',
   ),
   StarSystem(
     name: 'Sirius',
-    focusSecondsRequired: 126000, // 35 saat
+    focusSecondsRequired: 25200, // 7 saat
     spectralType: 'A1V',
-    description: 'Brightest star unlocked - 35 hours of focus',
+    description: 'Brightest star unlocked',
   ),
   StarSystem(
     name: 'Epsilon Eridani',
-    focusSecondsRequired: 144000, // 40 saat
+    focusSecondsRequired: 27000, // 7.5 saat
     spectralType: 'K2V',
-    description: 'Young star reached - 40 hours journey',
+    description: 'Young star reached',
   ),
   StarSystem(
     name: 'Vega',
-    focusSecondsRequired: 165600, // 46 saat
+    focusSecondsRequired: 28800, // 8 saat
     spectralType: 'A0V',
-    description: 'Blue-white beauty - 46 hours conquered',
+    description: 'Blue-white beauty',
   ),
   StarSystem(
     name: 'Arcturus',
-    focusSecondsRequired: 190800, // 53 saat
+    focusSecondsRequired: 30600, // 8.5 saat
     spectralType: 'K0III',
-    description: 'Orange giant achieved - 53 hours complete',
+    description: 'Orange giant achieved',
   ),
   StarSystem(
     name: 'Betelgeuse',
-    focusSecondsRequired: 219600, // 61 saat
+    focusSecondsRequired: 32400, // 9 saat
     spectralType: 'M1-2Ia-Iab',
-    description: 'Red supergiant - 61 hours of mastery',
+    description: 'Red supergiant',
   ),
   StarSystem(
     name: 'Rigel',
-    focusSecondsRequired: 252000, // 70 saat
+    focusSecondsRequired: 34200, // 9.5 saat
     spectralType: 'B8Ia',
-    description: 'Blue supergiant reached - 70 hours milestone',
+    description: 'Blue supergiant reached',
   ),
   StarSystem(
     name: 'Polaris',
-    focusSecondsRequired: 288000, // 80 saat
+    focusSecondsRequired: 36000, // 10 saat
     spectralType: 'F7Ib',
-    description: 'North Star found - 80 hours of guidance',
+    description: 'North Star found',
   ),
   StarSystem(
     name: 'Deneb',
-    focusSecondsRequired: 324000, // 90 saat
+    focusSecondsRequired: 43200, // 12 saat
     spectralType: 'A2Ia',
-    description: 'Distant supergiant - 90 hours ultimate achievement',
+    description: 'Distant supergiant',
   ),
 ];
 

@@ -105,7 +105,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                     gradient: AppTheme.primaryGradient,
                   ),
                   child: const Icon(
-                    Icons.do_not_disturb_on_rounded,
+                    Icons.nightlight_rounded,
                     color: Colors.white,
                     size: 32,
                   ),
@@ -532,8 +532,8 @@ class _TimerPageState extends ConsumerState<TimerPage>
                                           },
                                           child: Icon(
                                             _isDeepFocusEnabled
-                                                ? Icons.nightlight_round
-                                                : Icons.light_mode_rounded,
+                                                ? Icons.nightlight_rounded
+                                                : Icons.nightlight_rounded,
                                             key: ValueKey(_isDeepFocusEnabled),
                                             size: 14,
                                             color: _isDeepFocusEnabled
@@ -591,20 +591,6 @@ class _TimerPageState extends ConsumerState<TimerPage>
                     ),
                   ],
                 ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.history_rounded),
-                    onPressed: () {
-                      // Navigate to history
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.settings_rounded),
-                    onPressed: () {
-                      // Navigate to settings
-                    },
-                  ),
-                ],
               ),
               
               // Main Content

@@ -5,7 +5,7 @@ import 'models.dart';
 import 'hive_adapters.dart';
 
 // ============================================================================
-// STORAGE SERVICE
+// STORAGE SERVICE - UPDATED: Removed sessionsUntilLongBreak, autoStartBreaks, autoStartFocus
 // ============================================================================
 class StorageService {
   static late Box _preferencesBox;
@@ -137,16 +137,13 @@ class StorageService {
   }
   
   // ============================================================================
-  // SETTINGS OPERATIONS
+  // SETTINGS OPERATIONS - UPDATED: Removed sessionsUntilLongBreak, autoStartBreaks, autoStartFocus
   // ============================================================================
   static Future<Settings> getSettings() async {
     return Settings(
       focusDuration: _preferencesBox.get('focus_duration', defaultValue: 25),
       shortBreakDuration: _preferencesBox.get('short_break_duration', defaultValue: 5),
       longBreakDuration: _preferencesBox.get('long_break_duration', defaultValue: 15),
-      sessionsUntilLongBreak: _preferencesBox.get('sessions_until_long_break', defaultValue: 4),
-      autoStartBreaks: _preferencesBox.get('auto_start_breaks', defaultValue: false),
-      autoStartFocus: _preferencesBox.get('auto_start_focus', defaultValue: false),
       soundEnabled: _preferencesBox.get('sound_enabled', defaultValue: true),
       hapticEnabled: _preferencesBox.get('haptic_enabled', defaultValue: true),
       notificationsEnabled: _preferencesBox.get('notifications_enabled', defaultValue: true),
@@ -168,17 +165,9 @@ class StorageService {
     await _preferencesBox.put('long_break_duration', minutes);
   }
   
-  static Future<void> saveSessionsUntilLongBreak(int sessions) async {
-    await _preferencesBox.put('sessions_until_long_break', sessions);
-  }
-  
-  static Future<void> saveAutoStartBreaks(bool value) async {
-    await _preferencesBox.put('auto_start_breaks', value);
-  }
-  
-  static Future<void> saveAutoStartFocus(bool value) async {
-    await _preferencesBox.put('auto_start_focus', value);
-  }
+  // REMOVED: saveSessionsUntilLongBreak
+  // REMOVED: saveAutoStartBreaks
+  // REMOVED: saveAutoStartFocus
   
   static Future<void> saveSoundEnabled(bool value) async {
     await _preferencesBox.put('sound_enabled', value);

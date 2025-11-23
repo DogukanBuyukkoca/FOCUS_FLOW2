@@ -384,31 +384,11 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Rocket body
-              Container(
-                width: size,
-                height: size * 1.5,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.grey[300]!,
-                      Colors.grey[400]!,
-                      Colors.grey[500]!,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(size * 0.5),
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.rocket_rounded,
-                    size: size * 0.6,
-                    color: Colors.white,
-                  ),
-                ),
+              // Just the white rocket icon, 3x larger than before
+              Icon(
+                Icons.rocket_rounded,
+                size: size * 1.8, // 3x of the original 0.6 (0.6 * 3 = 1.8)
+                color: Colors.white,
               ),
               
               // Thrusters (active when focusing or launching)

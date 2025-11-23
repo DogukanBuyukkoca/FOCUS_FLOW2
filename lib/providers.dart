@@ -202,6 +202,7 @@ final statisticsProvider = Provider.family<AsyncValue<StatisticsData>, TimePerio
 
 // ============================================================================
 // SETTINGS PROVIDER - Kalıcı ayarlar için Hive entegrasyonu
+// UPDATED: Removed updateSessionsUntilLongBreak, updateAutoStartBreaks, updateAutoStartFocus
 // ============================================================================
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, Settings>((ref) {
@@ -239,20 +240,9 @@ class SettingsNotifier extends StateNotifier<Settings> {
     await StorageService.saveLongBreakDuration(minutes);
   }
   
-  Future<void> updateSessionsUntilLongBreak(int sessions) async {
-    state = state.copyWith(sessionsUntilLongBreak: sessions);
-    await StorageService.saveSessionsUntilLongBreak(sessions);
-  }
-  
-  Future<void> updateAutoStartBreaks(bool value) async {
-    state = state.copyWith(autoStartBreaks: value);
-    await StorageService.saveAutoStartBreaks(value);
-  }
-  
-  Future<void> updateAutoStartFocus(bool value) async {
-    state = state.copyWith(autoStartFocus: value);
-    await StorageService.saveAutoStartFocus(value);
-  }
+  // REMOVED: updateSessionsUntilLongBreak
+  // REMOVED: updateAutoStartBreaks
+  // REMOVED: updateAutoStartFocus
   
   Future<void> updateSoundEnabled(bool value) async {
     state = state.copyWith(soundEnabled: value);
@@ -274,79 +264,24 @@ class SettingsNotifier extends StateNotifier<Settings> {
     await StorageService.saveDailyReminderTime(time);
   }
   
-  void setPremium(bool value) {
+  Future<void> updateDarkMode(bool value) async {
+    state = state.copyWith(darkMode: value);
+    await StorageService.saveDarkMode(value);
+  }
+  
+  Future<void> updateIsPremium(bool value) async {
     state = state.copyWith(isPremium: value);
+    await StorageService.saveIsPremium(value);
   }
 }
 
-
-// ============================================================================
-// THEME PROVIDER
-// ============================================================================
-
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
-  return ThemeModeNotifier();
+// Theme Mode Provider
+final themeModeProvider = StateProvider<ThemeMode>((ref) {
+  final settings = ref.watch(settingsProvider);
+  return settings.darkMode ? ThemeMode.dark : ThemeMode.light;
 });
 
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system);
-  
-  void setThemeMode(ThemeMode mode) {
-    state = mode;
-  }
-}
-
-
-// ============================================================================
-// LOCALE PROVIDER
-// ============================================================================
-
-final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
-  return LocaleNotifier();
+// Locale Provider
+final localeProvider = StateProvider<Locale>((ref) {
+  return const Locale('en');
 });
-
-class LocaleNotifier extends StateNotifier<Locale> {
-  LocaleNotifier() : super(const Locale('en'));
-  
-  void setLocale(Locale locale) {
-    state = locale;
-  }
-}
-
-
-// ============================================================================
-// PREMIUM OFFERINGS PROVIDER
-// ============================================================================
-
-final premiumOfferingsProvider = FutureProvider<List<PremiumPackage>>((ref) async {
-  await Future.delayed(const Duration(seconds: 1));
-  
-  return [
-    PremiumPackage(
-      identifier: 'pro_month',
-      priceString: '\$4.99',
-      title: 'Monthly',
-      description: 'Billed monthly',
-    ),
-    PremiumPackage(
-      identifier: 'pro_year', 
-      priceString: '\$39.99',
-      title: 'Yearly',
-      description: 'Save 35%',
-    ),
-  ];
-});
-
-class PremiumPackage {
-  final String identifier;
-  final String priceString;
-  final String title;
-  final String description;
-  
-  PremiumPackage({
-    required this.identifier,
-    required this.priceString,
-    required this.title,
-    required this.description,
-  });
-}

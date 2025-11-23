@@ -327,14 +327,11 @@ class StatisticsData {
   });
 }
 
-// Settings Model
+// Settings Model - UPDATED: Removed sessionsUntilLongBreak, autoStartBreaks, autoStartFocus
 class Settings {
   final int focusDuration;
   final int shortBreakDuration;
   final int longBreakDuration;
-  final int sessionsUntilLongBreak;
-  final bool autoStartBreaks;
-  final bool autoStartFocus;
   final bool soundEnabled;
   final bool hapticEnabled;
   final bool notificationsEnabled;
@@ -346,9 +343,6 @@ class Settings {
     this.focusDuration = 25,
     this.shortBreakDuration = 5,
     this.longBreakDuration = 15,
-    this.sessionsUntilLongBreak = 4,
-    this.autoStartBreaks = false,
-    this.autoStartFocus = false,
     this.soundEnabled = true,
     this.hapticEnabled = true,
     this.notificationsEnabled = true,
@@ -361,9 +355,6 @@ class Settings {
     int? focusDuration,
     int? shortBreakDuration,
     int? longBreakDuration,
-    int? sessionsUntilLongBreak,
-    bool? autoStartBreaks,
-    bool? autoStartFocus,
     bool? soundEnabled,
     bool? hapticEnabled,
     bool? notificationsEnabled,
@@ -375,9 +366,6 @@ class Settings {
       focusDuration: focusDuration ?? this.focusDuration,
       shortBreakDuration: shortBreakDuration ?? this.shortBreakDuration,
       longBreakDuration: longBreakDuration ?? this.longBreakDuration,
-      sessionsUntilLongBreak: sessionsUntilLongBreak ?? this.sessionsUntilLongBreak,
-      autoStartBreaks: autoStartBreaks ?? this.autoStartBreaks,
-      autoStartFocus: autoStartFocus ?? this.autoStartFocus,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       hapticEnabled: hapticEnabled ?? this.hapticEnabled,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,

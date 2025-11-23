@@ -5,7 +5,6 @@ import 'dart:math' as math;
 
 import 'space_progress_provider.dart';
 import 'timer_provider.dart';
-import 'models.dart'; // SessionType için
 
 class SpaceRocketPage extends ConsumerStatefulWidget {
   const SpaceRocketPage({super.key});
@@ -19,11 +18,9 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
   late AnimationController _launchController;
   late AnimationController _idleAnimationController;
   late AnimationController _thrusterController;
-  late AnimationController _fuelCountdownController;
   
   bool _isLaunching = false;
   int _animatedFuelValue = 0;
-  double _animatedDistanceValue = 0.0;
 
   @override
   void initState() {
@@ -46,12 +43,6 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
       vsync: this,
       duration: const Duration(milliseconds: 150),
     )..repeat(reverse: true);
-    
-    // Fuel countdown animation controller
-    _fuelCountdownController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 5),
-    );
   }
 
   @override
@@ -59,7 +50,6 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     _launchController.dispose();
     _idleAnimationController.dispose();
     _thrusterController.dispose();
-    _fuelCountdownController.dispose();
     super.dispose();
   }
 
@@ -81,25 +71,16 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     setState(() {
       _isLaunching = true;
       _animatedFuelValue = spaceData.unspentFocusSeconds;
-      _animatedDistanceValue = spaceData.totalDistanceLightYears;
     });
-
-    // Calculate target distance
-    final hoursToConsume = spaceData.unspentFocusSeconds / 3600.0;
-    final distanceToAdd = hoursToConsume * 0.1;
-    final targetDistance = spaceData.totalDistanceLightYears + distanceToAdd;
 
     // Start launch animation
     _launchController.forward(from: 0);
     
-    // Animate fuel countdown and distance increase
+    // Animate fuel countdown
     await ref.read(spaceProgressProvider.notifier).consumeFuelAnimated((remainingFuel) {
       if (mounted) {
         setState(() {
           _animatedFuelValue = remainingFuel;
-          // Distance artışını da animasyonla göster
-          double progress = 1 - (remainingFuel / spaceData.unspentFocusSeconds);
-          _animatedDistanceValue = spaceData.totalDistanceLightYears + (distanceToAdd * progress);
         });
       }
     });
@@ -114,9 +95,22 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     
     // Show completion message
     if (mounted) {
+      final focusSeconds = spaceData.unspentFocusSeconds;
+      final hours = focusSeconds ~/ 3600;
+      final minutes = (focusSeconds % 3600) ~/ 60;
+      
+      String message = 'Journey complete! Used ';
+      if (hours > 0) {
+        message += '${hours}h ';
+      }
+      if (minutes > 0 || hours == 0) {
+        message += '${minutes}m ';
+      }
+      message += 'of focus time!';
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Journey complete! Traveled ${distanceToAdd.toStringAsFixed(2)} light years!'),
+          content: Text(message),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
         ),
@@ -133,7 +127,6 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     
     // Use animated values during launch, otherwise use actual values
     final displayFuel = _isLaunching ? _animatedFuelValue : spaceData.unspentFocusSeconds;
-    final displayDistance = _isLaunching ? _animatedDistanceValue : spaceData.totalDistanceLightYears;
     
     // Responsive sizing
     final isSmallScreen = size.width < 360;
@@ -154,7 +147,7 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
             child: _buildRocket(rocketSize, isFocusing || _isLaunching),
           ),
           
-          // Top info bar - Responsive
+          // Top info bar - Responsive (SADECE 2 KUTU)
           SafeArea(
             child: Padding(
               padding: EdgeInsets.all(isSmallScreen ? 12.0 : 16.0),
@@ -176,19 +169,6 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
                     Icons.military_tech_rounded,
                     theme,
                     isSmallScreen,
-                  ),
-                  SizedBox(height: isSmallScreen ? 8 : 12),
-                  AnimatedBuilder(
-                    animation: _launchController,
-                    builder: (context, child) {
-                      return _buildInfoCard(
-                        'Distance Traveled',
-                        '${displayDistance.toStringAsFixed(2)} ly',
-                        Icons.flight_rounded,
-                        theme,
-                        isSmallScreen,
-                      );
-                    },
                   ),
                 ],
               ),
@@ -218,38 +198,58 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
                               vertical: isSmallScreen ? 12 : 16,
                             ),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surface.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(20),
+                              color: theme.colorScheme.surface.withOpacity(0.95),
+                              borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: theme.colorScheme.primary.withOpacity(0.3),
                                 width: 2,
                               ),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'Available Fuel',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                                      fontSize: isSmallScreen ? 12 : 14,
-                                    ),
-                                  ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: theme.colorScheme.primary.withOpacity(0.2),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
                                 ),
-                                SizedBox(height: isSmallScreen ? 4 : 8),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    _formatDuration(displayFuel),
-                                    style: theme.textTheme.headlineLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: _isLaunching 
-                                          ? theme.colorScheme.secondary
-                                          : theme.colorScheme.primary,
-                                      fontSize: isSmallScreen ? 28 : 36,
-                                    ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.local_fire_department_rounded,
+                                  color: theme.colorScheme.primary,
+                                  size: isSmallScreen ? 28 : 32,
+                                ),
+                                SizedBox(width: isSmallScreen ? 12 : 16),
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          'Available Fuel',
+                                          style: theme.textTheme.bodyMedium?.copyWith(
+                                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                            fontSize: isSmallScreen ? 12 : 14,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          _formatDuration(displayFuel),
+                                          style: theme.textTheme.headlineSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.colorScheme.primary,
+                                            fontSize: isSmallScreen ? 20 : 24,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -258,6 +258,7 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
                         },
                       ),
                     ),
+                    
                     SizedBox(height: isSmallScreen ? 16 : 24),
                     
                     // Launch button
@@ -347,10 +348,10 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
         AnimatedBuilder(
           animation: _launchController,
           builder: (context, child) {
-            final offset = isLaunching ? _launchController.value * size.height * 0.9 : 0.0;
+            final offset = isLaunching ? _launchController.value * size.height * 1.0 : 0.0;
             return Transform.translate(
               offset: Offset(0, offset),
-              child: _buildStarLayer(size, 20, 3.0, 1.0),
+              child: _buildStarLayer(size, 20, 3.0, 0.9),
             );
           },
         ),
@@ -359,16 +360,13 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
   }
 
   Widget _buildStarLayer(Size size, int count, double maxSize, double opacity) {
-    return SizedBox(
-      width: size.width,
-      height: size.height,
-      child: CustomPaint(
-        painter: _StarPainter(
-          count: count,
-          maxSize: maxSize,
-          opacity: opacity,
-          seed: count,
-        ),
+    return CustomPaint(
+      size: size,
+      painter: _StarPainter(
+        count: count,
+        maxSize: maxSize,
+        opacity: opacity,
+        seed: count * 100,
       ),
     );
   }
@@ -432,48 +430,61 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     ThemeData theme,
     bool isSmall,
   ) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmall ? 12 : 16,
-        vertical: isSmall ? 8 : 12,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width - (isSmall ? 24 : 32),
       ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.primary.withOpacity(0.2),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmall ? 12 : 16,
+          vertical: isSmall ? 8 : 12,
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: isSmall ? 18 : 22,
-            color: theme.colorScheme.primary,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.primary.withOpacity(0.2),
           ),
-          SizedBox(width: isSmall ? 8 : 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  fontSize: isSmall ? 10 : 12,
-                ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: isSmall ? 18 : 22,
+              color: theme.colorScheme.primary,
+            ),
+            SizedBox(width: isSmall ? 8 : 12),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      title,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        fontSize: isSmall ? 10 : 12,
+                      ),
+                    ),
+                  ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      value,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: isSmall ? 14 : 16,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                value,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: isSmall ? 14 : 16,
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -484,7 +495,7 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
     final secs = seconds % 60;
     
     if (hours > 0) {
-      return '${hours}h ${minutes}m ${secs}s';
+      return '${hours}h ${minutes}m';
     } else if (minutes > 0) {
       return '${minutes}m ${secs}s';
     } else {

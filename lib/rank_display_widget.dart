@@ -22,7 +22,7 @@ class RankDisplayWidget extends ConsumerWidget {
     
     final nextRank = spaceNotifier.getNextRank();
     final progress = spaceNotifier.getProgressToNextRank();
-    final totalHours = spaceData.totalFocusSeconds / 3600;
+    final totalHours = (spaceData.totalFocusSeconds / 3600).floor();
     
     final isSmallScreen = size.width < 360;
 
@@ -48,7 +48,7 @@ class RankDisplayWidget extends ConsumerWidget {
   Widget _buildCompactView(
     ThemeData theme,
     SpaceProgressData spaceData,
-    double totalHours,
+    int totalHours,
     bool isSmallScreen,
   ) {
     return Container(
@@ -98,7 +98,7 @@ class RankDisplayWidget extends ConsumerWidget {
     SpaceProgressData spaceData,
     SpaceRank? nextRank,
     double progress,
-    double totalHours,
+    int totalHours,
     bool isSmallScreen,
   ) {
     return Container(
@@ -158,34 +158,24 @@ class RankDisplayWidget extends ConsumerWidget {
                   children: [
                     FittedBox(
                       fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         'Current Rank',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurface.withOpacity(0.6),
-                          fontSize: isSmallScreen ? 11 : 12,
+                          fontSize: isSmallScreen ? 10 : 12,
                         ),
                       ),
                     ),
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
                       child: Text(
                         spaceData.currentRank,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
                           fontSize: isSmallScreen ? 20 : 24,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        '${totalHours.toStringAsFixed(1)} hours of focus',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.5),
-                          fontSize: isSmallScreen ? 10 : 11,
                         ),
                       ),
                     ),
@@ -197,8 +187,6 @@ class RankDisplayWidget extends ConsumerWidget {
           
           if (showProgress && nextRank != null) ...[
             SizedBox(height: isSmallScreen ? 16 : 20),
-            
-            // Progress bar
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -209,11 +197,12 @@ class RankDisplayWidget extends ConsumerWidget {
                     Flexible(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
                         child: Text(
-                          'Next Rank: ${nextRank.name}',
+                          'Progress to ${nextRank.name}',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
-                            fontSize: isSmallScreen ? 12 : 13,
+                            fontSize: isSmallScreen ? 12 : 14,
                           ),
                         ),
                       ),
@@ -222,10 +211,10 @@ class RankDisplayWidget extends ConsumerWidget {
                       fit: BoxFit.scaleDown,
                       child: Text(
                         '${(progress * 100).toStringAsFixed(0)}%',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: isSmallScreen ? 11 : 12,
+                          color: theme.colorScheme.primary,
+                          fontSize: isSmallScreen ? 12 : 14,
                         ),
                       ),
                     ),
@@ -233,24 +222,25 @@ class RankDisplayWidget extends ConsumerWidget {
                 ),
                 SizedBox(height: isSmallScreen ? 8 : 10),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: isSmallScreen ? 8 : 10,
-                    backgroundColor: theme.colorScheme.surface,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       theme.colorScheme.primary,
                     ),
                   ),
                 ),
-                SizedBox(height: isSmallScreen ? 6 : 8),
+                SizedBox(height: isSmallScreen ? 8 : 10),
                 FittedBox(
                   fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
                   child: Text(
-                    '${(nextRank.requiredHours - totalHours).toStringAsFixed(1)} hours until ${nextRank.name}',
+                    '${_formatHours(nextRank.requiredSeconds)} required • ${totalHours}h completed',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      fontSize: isSmallScreen ? 10 : 11,
+                      fontSize: isSmallScreen ? 10 : 12,
                     ),
                   ),
                 ),
@@ -258,13 +248,16 @@ class RankDisplayWidget extends ConsumerWidget {
             ),
           ],
           
-          if (nextRank == null) ...[
-            SizedBox(height: isSmallScreen ? 12 : 16),
+          if (showProgress && nextRank == null) ...[
+            SizedBox(height: isSmallScreen ? 16 : 20),
             Container(
-              padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+              padding: EdgeInsets.all(isSmallScreen ? 12 : 14),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: theme.colorScheme.primaryContainer.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withOpacity(0.3),
+                ),
               ),
               child: Row(
                 children: [
@@ -296,6 +289,11 @@ class RankDisplayWidget extends ConsumerWidget {
       ),
     );
   }
+
+  String _formatHours(int seconds) {
+    final hours = seconds ~/ 3600;
+    return '${hours}h';
+  }
 }
 
 // Rank progression display for statistics page
@@ -307,7 +305,6 @@ class RankProgressionWidget extends ConsumerWidget {
     final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
     final spaceData = ref.watch(spaceProgressProvider);
-    final totalHours = spaceData.totalFocusSeconds / 3600;
     
     final isSmallScreen = size.width < 360;
 
@@ -337,7 +334,9 @@ class RankProgressionWidget extends ConsumerWidget {
           SizedBox(height: isSmallScreen ? 16 : 20),
           
           ...spaceRanks.map((rank) {
-            final isAchieved = totalHours >= rank.requiredHours;
+            final requiredHours = rank.requiredSeconds ~/ 3600;
+            final totalHours = spaceData.totalFocusSeconds ~/ 3600;
+            final isAchieved = spaceData.totalFocusSeconds >= rank.requiredSeconds;
             final isCurrent = spaceData.currentRank == rank.name;
             
             return Padding(
@@ -377,6 +376,7 @@ class RankProgressionWidget extends ConsumerWidget {
                       children: [
                         FittedBox(
                           fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
                           child: Text(
                             rank.name,
                             style: theme.textTheme.titleSmall?.copyWith(
@@ -391,8 +391,9 @@ class RankProgressionWidget extends ConsumerWidget {
                         const SizedBox(height: 2),
                         FittedBox(
                           fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
                           child: Text(
-                            '${rank.requiredHours} hours • ${rank.description}',
+                            '${requiredHours}h • ${rank.description}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurface.withOpacity(0.6),
                               fontSize: isSmallScreen ? 10 : 11,
@@ -406,21 +407,18 @@ class RankProgressionWidget extends ConsumerWidget {
                     Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: isSmallScreen ? 6 : 8,
-                        vertical: isSmallScreen ? 2 : 4,
+                        vertical: isSmallScreen ? 3 : 4,
                       ),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          'CURRENT',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: isSmallScreen ? 9 : 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      child: Text(
+                        'Current',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: isSmallScreen ? 9 : 10,
                         ),
                       ),
                     ),

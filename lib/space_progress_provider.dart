@@ -1,40 +1,36 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'dart:async';
 
 // Space Progress Data Model
 class SpaceProgressData {
-  final int totalFocusSeconds; // Hiç sıfırlanmayan toplam odaklanma süresi
-  final int unspentFocusSeconds; // Harcanmamış yakıt (launch'tan sonra sıfırlanır)
-  final double totalDistanceLightYears; // Toplam kat edilen mesafe
-  final String currentRank; // Mevcut rütbe
-  final int currentStarIndex; // Hangi yıldıza ulaşıldı
-  final List<String> unlockedStars; // Kilidi açılan yıldızlar
+  final int totalFocusSeconds;
+  final int unspentFocusSeconds;
+  final int currentStarIndex;
+  final List<String> unlockedStars;
+  final String currentRank;
 
   SpaceProgressData({
     required this.totalFocusSeconds,
     required this.unspentFocusSeconds,
-    required this.totalDistanceLightYears,
-    required this.currentRank,
     required this.currentStarIndex,
     required this.unlockedStars,
+    required this.currentRank,
   });
 
   SpaceProgressData copyWith({
     int? totalFocusSeconds,
     int? unspentFocusSeconds,
-    double? totalDistanceLightYears,
-    String? currentRank,
     int? currentStarIndex,
     List<String>? unlockedStars,
+    String? currentRank,
   }) {
     return SpaceProgressData(
       totalFocusSeconds: totalFocusSeconds ?? this.totalFocusSeconds,
       unspentFocusSeconds: unspentFocusSeconds ?? this.unspentFocusSeconds,
-      totalDistanceLightYears: totalDistanceLightYears ?? this.totalDistanceLightYears,
-      currentRank: currentRank ?? this.currentRank,
       currentStarIndex: currentStarIndex ?? this.currentStarIndex,
       unlockedStars: unlockedStars ?? this.unlockedStars,
+      currentRank: currentRank ?? this.currentRank,
     );
   }
 }
@@ -42,218 +38,282 @@ class SpaceProgressData {
 // Space Rank Model
 class SpaceRank {
   final String name;
-  final double requiredHours;
+  final int requiredSeconds;
   final String description;
 
   const SpaceRank({
     required this.name,
-    required this.requiredHours,
+    required this.requiredSeconds,
     required this.description,
   });
 }
 
 // Rank sistemi (Uzay Edebiyatı referansları)
 const List<SpaceRank> spaceRanks = [
-  SpaceRank(name: 'Cadet', requiredHours: 0, description: 'Yeni başlayan'),
-  SpaceRank(name: 'Ensign', requiredHours: 10, description: '10 saat odaklanma'),
-  SpaceRank(name: 'Lieutenant', requiredHours: 25, description: '25 saat odaklanma'),
-  SpaceRank(name: 'Commander', requiredHours: 50, description: '50 saat odaklanma'),
-  SpaceRank(name: 'Captain', requiredHours: 100, description: '100 saat odaklanma'),
-  SpaceRank(name: 'Admiral', requiredHours: 250, description: '250 saat odaklanma'),
-  SpaceRank(name: 'Fleet Admiral', requiredHours: 500, description: '500 saat odaklanma'),
+  SpaceRank(name: 'Cadet', requiredSeconds: 0, description: 'Yeni başlayan'),
+  SpaceRank(name: 'Ensign', requiredSeconds: 36000, description: '10 saat odaklanma'),
+  SpaceRank(name: 'Lieutenant', requiredSeconds: 90000, description: '25 saat odaklanma'),
+  SpaceRank(name: 'Commander', requiredSeconds: 180000, description: '50 saat odaklanma'),
+  SpaceRank(name: 'Captain', requiredSeconds: 360000, description: '100 saat odaklanma'),
+  SpaceRank(name: 'Admiral', requiredSeconds: 900000, description: '250 saat odaklanma'),
+  SpaceRank(name: 'Fleet Admiral', requiredSeconds: 1800000, description: '500 saat odaklanma'),
 ];
 
 // Star System Model
 class StarSystem {
   final String name;
-  final double distanceFromEarth; // Light years
+  final int focusSecondsRequired; // Gerekli odaklanma süresi (saniye)
   final String spectralType;
   final String description;
-  final int focusHoursRequired;
 
   const StarSystem({
     required this.name,
-    required this.distanceFromEarth,
+    required this.focusSecondsRequired,
     required this.spectralType,
     required this.description,
-    required this.focusHoursRequired,
   });
+  
+  // Süreyi formatlanmış string olarak döndür
+  String get formattedDuration {
+    final hours = focusSecondsRequired ~/ 3600;
+    final minutes = (focusSecondsRequired % 3600) ~/ 60;
+    
+    if (hours > 0 && minutes > 0) {
+      return '${hours}h ${minutes}m';
+    } else if (hours > 0) {
+      return '${hours}h';
+    } else {
+      return '${minutes}m';
+    }
+  }
 }
 
-// Yıldız sistemleri (1 saat = 0.1 light year)
+// Yıldız sistemleri - Progresif zorluk sistemi
+// Başlangıç: 30dk-2 saat
+// Orta: 3-8 saat  
+// İleri: 10-25 saat
 const List<StarSystem> starSystems = [
   StarSystem(
     name: 'Earth (Sol)',
-    distanceFromEarth: 0,
+    focusSecondsRequired: 0,
     spectralType: 'G2V',
     description: 'Our home in the cosmos',
-    focusHoursRequired: 0,
+  ),
+  StarSystem(
+    name: 'Moon',
+    focusSecondsRequired: 1800, // 30 dakika
+    spectralType: 'Satellite',
+    description: 'First small step - 30 minutes of focus',
+  ),
+  StarSystem(
+    name: 'Mars',
+    focusSecondsRequired: 5400, // 1.5 saat (90 dk)
+    spectralType: 'Red Planet',
+    description: 'The red frontier - 1.5 hours of dedication',
+  ),
+  StarSystem(
+    name: 'Jupiter',
+    focusSecondsRequired: 10800, // 3 saat
+    spectralType: 'Gas Giant',
+    description: 'Giant leap forward - 3 hours of focus',
+  ),
+  StarSystem(
+    name: 'Saturn',
+    focusSecondsRequired: 18000, // 5 saat
+    spectralType: 'Ringed Beauty',
+    description: 'Ring of discipline - 5 hours achieved',
+  ),
+  StarSystem(
+    name: 'Uranus',
+    focusSecondsRequired: 28800, // 8 saat
+    spectralType: 'Ice Giant',
+    description: 'Pushing boundaries - 8 hours conquered',
+  ),
+  StarSystem(
+    name: 'Neptune',
+    focusSecondsRequired: 39600, // 11 saat
+    spectralType: 'Deep Blue',
+    description: 'Deep commitment - 11 hours of focus',
+  ),
+  StarSystem(
+    name: 'Pluto',
+    focusSecondsRequired: 54000, // 15 saat
+    spectralType: 'Dwarf Planet',
+    description: 'Beyond the ordinary - 15 hours milestone',
   ),
   StarSystem(
     name: 'Proxima Centauri',
-    distanceFromEarth: 4.24,
+    focusSecondsRequired: 72000, // 20 saat
     spectralType: 'M5.5Ve',
-    description: 'En yakın yıldız - 42.4 saat odaklanma',
-    focusHoursRequired: 42,
+    description: 'Nearest star reached - 20 hours of dedication',
+  ),
+  StarSystem(
+    name: 'Alpha Centauri A',
+    focusSecondsRequired: 93600, // 26 saat
+    spectralType: 'G2V',
+    description: 'Sister sun discovered - 26 hours achieved',
+  ),
+  StarSystem(
+    name: 'Barnard\'s Star',
+    focusSecondsRequired: 108000, // 30 saat
+    spectralType: 'M4Ve',
+    description: 'Red dwarf mastered - 30 hours complete',
   ),
   StarSystem(
     name: 'Sirius',
-    distanceFromEarth: 8.6,
+    focusSecondsRequired: 126000, // 35 saat
     spectralType: 'A1V',
-    description: 'Gökyüzünün en parlak yıldızı - 86 saat',
-    focusHoursRequired: 86,
+    description: 'Brightest star unlocked - 35 hours of focus',
+  ),
+  StarSystem(
+    name: 'Epsilon Eridani',
+    focusSecondsRequired: 144000, // 40 saat
+    spectralType: 'K2V',
+    description: 'Young star reached - 40 hours journey',
   ),
   StarSystem(
     name: 'Vega',
-    distanceFromEarth: 25,
-    spectralType: 'A0Va',
-    description: 'Lyra takımyıldızı - 250 saat',
-    focusHoursRequired: 250,
+    focusSecondsRequired: 165600, // 46 saat
+    spectralType: 'A0V',
+    description: 'Blue-white beauty - 46 hours conquered',
   ),
   StarSystem(
     name: 'Arcturus',
-    distanceFromEarth: 37,
+    focusSecondsRequired: 190800, // 53 saat
     spectralType: 'K0III',
-    description: 'Kırmızı dev yıldız - 370 saat',
-    focusHoursRequired: 370,
+    description: 'Orange giant achieved - 53 hours complete',
   ),
   StarSystem(
     name: 'Betelgeuse',
-    distanceFromEarth: 642,
-    spectralType: 'M1-2Ia-ab',
-    description: 'Süper dev yıldız - 6420 saat',
-    focusHoursRequired: 6420,
+    focusSecondsRequired: 219600, // 61 saat
+    spectralType: 'M1-2Ia-Iab',
+    description: 'Red supergiant - 61 hours of mastery',
+  ),
+  StarSystem(
+    name: 'Rigel',
+    focusSecondsRequired: 252000, // 70 saat
+    spectralType: 'B8Ia',
+    description: 'Blue supergiant reached - 70 hours milestone',
+  ),
+  StarSystem(
+    name: 'Polaris',
+    focusSecondsRequired: 288000, // 80 saat
+    spectralType: 'F7Ib',
+    description: 'North Star found - 80 hours of guidance',
+  ),
+  StarSystem(
+    name: 'Deneb',
+    focusSecondsRequired: 324000, // 90 saat
+    spectralType: 'A2Ia',
+    description: 'Distant supergiant - 90 hours ultimate achievement',
   ),
 ];
 
-// Space Progress Provider
+// Provider
 final spaceProgressProvider = StateNotifierProvider<SpaceProgressNotifier, SpaceProgressData>((ref) {
   return SpaceProgressNotifier();
 });
 
 class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
   late Box _spaceBox;
-
+  
   SpaceProgressNotifier() : super(SpaceProgressData(
     totalFocusSeconds: 0,
     unspentFocusSeconds: 0,
-    totalDistanceLightYears: 0.0,
-    currentRank: 'Cadet',
     currentStarIndex: 0,
-    unlockedStars: [],
+    unlockedStars: ['Earth (Sol)'],
+    currentRank: 'Cadet',
   )) {
-    _initializeSpace();
+    _initializeData();
   }
 
-  Future<void> _initializeSpace() async {
+  Future<void> _initializeData() async {
     _spaceBox = await Hive.openBox('space_progress');
-    await _loadProgress();
-  }
-
-  Future<void> _loadProgress() async {
-    final totalSeconds = _spaceBox.get('total_focus_seconds', defaultValue: 0);
-    final unspentSeconds = _spaceBox.get('unspent_focus_seconds', defaultValue: 0);
-    final distance = _spaceBox.get('total_distance_ly', defaultValue: 0.0);
-    final starIndex = _spaceBox.get('current_star_index', defaultValue: 0);
-    final unlockedStarsList = _spaceBox.get('unlocked_stars', defaultValue: <String>[]);
-
+    
+    final totalFocus = _spaceBox.get('total_focus_seconds', defaultValue: 0) as int;
+    final unspentFocus = _spaceBox.get('unspent_focus_seconds', defaultValue: 0) as int;
+    final starIndex = _spaceBox.get('current_star_index', defaultValue: 0) as int;
+    final unlocked = (_spaceBox.get('unlocked_stars', defaultValue: ['Earth (Sol)']) as List).cast<String>();
+    
     state = SpaceProgressData(
-      totalFocusSeconds: totalSeconds,
-      unspentFocusSeconds: unspentSeconds,
-      totalDistanceLightYears: distance,
-      currentRank: _calculateRank(totalSeconds),
+      totalFocusSeconds: totalFocus,
+      unspentFocusSeconds: unspentFocus,
       currentStarIndex: starIndex,
-      unlockedStars: List<String>.from(unlockedStarsList),
+      unlockedStars: unlocked,
+      currentRank: _calculateRank(totalFocus),
     );
   }
 
   String _calculateRank(int totalSeconds) {
-    final totalHours = totalSeconds / 3600;
+    String rankName = 'Cadet';
     
-    SpaceRank currentRank = spaceRanks.first;
-    for (final rank in spaceRanks) {
-      if (totalHours >= rank.requiredHours) {
-        currentRank = rank;
-      } else {
+    for (final rank in spaceRanks.reversed) {
+      if (totalSeconds >= rank.requiredSeconds) {
+        rankName = rank.name;
         break;
       }
     }
     
-    return currentRank.name;
+    return rankName;
   }
 
-  // Timer'dan her saniye çağrılacak - SADECE ekleme yapar
+  // Odaklanma süresi ekle
   Future<void> addFocusTime(int seconds) async {
-    final newTotalSeconds = state.totalFocusSeconds + seconds;
-    final newUnspentSeconds = state.unspentFocusSeconds + seconds;
-    final newRank = _calculateRank(newTotalSeconds);
+    final newTotal = state.totalFocusSeconds + seconds;
+    final newUnspent = state.unspentFocusSeconds + seconds;
+    final newRank = _calculateRank(newTotal);
+    
+    // Yıldız ilerlemesini kontrol et
+    final starData = _checkStarProgress(newTotal);
 
     state = state.copyWith(
-      totalFocusSeconds: newTotalSeconds,
-      unspentFocusSeconds: newUnspentSeconds,
+      totalFocusSeconds: newTotal,
+      unspentFocusSeconds: newUnspent,
       currentRank: newRank,
-    );
-
-    // Hive'a kaydet
-    await _spaceBox.put('total_focus_seconds', newTotalSeconds);
-    await _spaceBox.put('unspent_focus_seconds', newUnspentSeconds);
-  }
-
-  // Launch butonu için - Animasyonlu yakıt tüketimi
-  Future<void> consumeFuelAnimated(Function(int) onUpdate) async {
-    if (state.unspentFocusSeconds <= 0) return;
-
-    final startingFuel = state.unspentFocusSeconds;
-    final hoursToConsume = startingFuel / 3600.0;
-    final distanceToAdd = hoursToConsume * 0.1;
-    
-    // 5 saniye boyunca animasyon (60 FPS = 300 frame)
-    const int totalFrames = 300;
-    const int frameDurationMs = 16; // ~60 FPS
-    
-    for (int i = 0; i <= totalFrames; i++) {
-      await Future.delayed(const Duration(milliseconds: frameDurationMs));
-      
-      // Ease-out cubic easing function
-      double progress = i / totalFrames;
-      progress = 1 - (1 - progress) * (1 - progress) * (1 - progress);
-      
-      // Kalan yakıtı hesapla
-      int remainingFuel = (startingFuel * (1 - progress)).round();
-      
-      // State'i güncelle (sadece UI için, henüz Hive'a kaydetme)
-      state = state.copyWith(
-        unspentFocusSeconds: remainingFuel,
-      );
-      
-      // Callback ile UI'ı bilgilendir
-      onUpdate(remainingFuel);
-    }
-    
-    // Animasyon bittiğinde final değerleri kaydet
-    final newDistance = state.totalDistanceLightYears + distanceToAdd;
-    final starData = _checkStarProgress(newDistance);
-
-    state = state.copyWith(
-      unspentFocusSeconds: 0,
-      totalDistanceLightYears: newDistance,
       currentStarIndex: starData['index'],
       unlockedStars: starData['unlocked'],
     );
 
-    // Hive'a son durumu kaydet
-    await _spaceBox.put('unspent_focus_seconds', 0);
-    await _spaceBox.put('total_distance_ly', newDistance);
+    await _spaceBox.put('total_focus_seconds', newTotal);
+    await _spaceBox.put('unspent_focus_seconds', newUnspent);
     await _spaceBox.put('current_star_index', starData['index']);
     await _spaceBox.put('unlocked_stars', starData['unlocked']);
   }
 
-  Map<String, dynamic> _checkStarProgress(double currentDistance) {
+  // Yakıt harca (roket fırlatma)
+  Future<void> consumeFuelAnimated(Function(int) onUpdate) async {
+    final startingFuel = state.unspentFocusSeconds;
+    
+    if (startingFuel <= 0) return;
+
+    // 5 saniyelik animasyon
+    const totalFrames = 60;
+    const frameDurationMs = 83; // ~60 FPS
+    
+    for (int i = 0; i <= totalFrames; i++) {
+      await Future.delayed(const Duration(milliseconds: frameDurationMs));
+      
+      // Ease-out cubic easing
+      double progress = i / totalFrames;
+      progress = 1 - (1 - progress) * (1 - progress) * (1 - progress);
+      
+      int remainingFuel = (startingFuel * (1 - progress)).round();
+      
+      state = state.copyWith(unspentFocusSeconds: remainingFuel);
+      onUpdate(remainingFuel);
+    }
+    
+    // Animasyon bittiğinde final değerleri kaydet
+    state = state.copyWith(unspentFocusSeconds: 0);
+    await _spaceBox.put('unspent_focus_seconds', 0);
+  }
+
+  Map<String, dynamic> _checkStarProgress(int currentFocusSeconds) {
     int newStarIndex = state.currentStarIndex;
     List<String> newUnlocked = List.from(state.unlockedStars);
 
     for (int i = 0; i < starSystems.length; i++) {
-      if (currentDistance >= starSystems[i].distanceFromEarth) {
+      if (currentFocusSeconds >= starSystems[i].focusSecondsRequired) {
         if (i > newStarIndex) {
           newStarIndex = i;
         }
@@ -271,10 +331,10 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
 
   // Sonraki rütbeyi getir
   SpaceRank? getNextRank() {
-    final currentHours = state.totalFocusSeconds / 3600;
+    final currentSeconds = state.totalFocusSeconds;
     
     for (final rank in spaceRanks) {
-      if (currentHours < rank.requiredHours) {
+      if (currentSeconds < rank.requiredSeconds) {
         return rank;
       }
     }
@@ -284,13 +344,13 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
 
   // Sonraki rütbeye ilerleme (0.0 - 1.0)
   double getProgressToNextRank() {
-    final currentHours = state.totalFocusSeconds / 3600;
+    final currentSeconds = state.totalFocusSeconds;
     
     SpaceRank? currentRankObj;
     SpaceRank? nextRank;
     
     for (int i = 0; i < spaceRanks.length; i++) {
-      if (currentHours >= spaceRanks[i].requiredHours) {
+      if (currentSeconds >= spaceRanks[i].requiredSeconds) {
         currentRankObj = spaceRanks[i];
       } else {
         nextRank = spaceRanks[i];
@@ -298,40 +358,45 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
       }
     }
     
-    if (nextRank == null) return 1.0; // Maksimum rütbe
-    if (currentRankObj == null) return 0.0;
-    
-    final rangeHours = nextRank.requiredHours - currentRankObj.requiredHours;
-    final progressHours = currentHours - currentRankObj.requiredHours;
-    
-    return (progressHours / rangeHours).clamp(0.0, 1.0);
-  }
-
-  // Mevcut yıldız sistemini getir
-  StarSystem getCurrentStar() {
-    if (state.currentStarIndex < starSystems.length) {
-      return starSystems[state.currentStarIndex];
+    if (nextRank == null || currentRankObj == null) {
+      return 1.0; // Maksimum seviyede
     }
-    return starSystems.last;
+    
+    final rangeSeconds = nextRank.requiredSeconds - currentRankObj.requiredSeconds;
+    final progressSeconds = currentSeconds - currentRankObj.requiredSeconds;
+    
+    return (progressSeconds / rangeSeconds).clamp(0.0, 1.0);
   }
 
-  // Sonraki yıldıza mesafe
-  StarSystem? getNextStar() {
-    if (state.currentStarIndex >= starSystems.length - 1) {
-      return null; // Son yıldızdasın
-    }
-    return starSystems[state.currentStarIndex + 1];
-  }
-
-  // Sonraki yıldıza ilerleme
+  // Sonraki yıldıza ilerleme (0.0 - 1.0)
   double getProgressToNextStar() {
-    final nextStar = getNextStar();
-    if (nextStar == null) return 1.0;
-    
+    if (state.currentStarIndex >= starSystems.length - 1) {
+      return 1.0; // Son yıldıza ulaşıldı
+    }
+
     final currentStar = starSystems[state.currentStarIndex];
-    final range = nextStar.distanceFromEarth - currentStar.distanceFromEarth;
-    final progress = state.totalDistanceLightYears - currentStar.distanceFromEarth;
+    final nextStar = starSystems[state.currentStarIndex + 1];
     
-    return (progress / range).clamp(0.0, 1.0);
+    final rangeSeconds = nextStar.focusSecondsRequired - currentStar.focusSecondsRequired;
+    final progressSeconds = state.totalFocusSeconds - currentStar.focusSecondsRequired;
+    
+    return (progressSeconds / rangeSeconds).clamp(0.0, 1.0);
+  }
+
+  // Data'yı sıfırla (test için)
+  Future<void> resetProgress() async {
+    state = SpaceProgressData(
+      totalFocusSeconds: 0,
+      unspentFocusSeconds: 0,
+      currentStarIndex: 0,
+      unlockedStars: ['Earth (Sol)'],
+      currentRank: 'Cadet',
+    );
+
+    await _spaceBox.clear();
+    await _spaceBox.put('total_focus_seconds', 0);
+    await _spaceBox.put('unspent_focus_seconds', 0);
+    await _spaceBox.put('current_star_index', 0);
+    await _spaceBox.put('unlocked_stars', ['Earth (Sol)']);
   }
 }

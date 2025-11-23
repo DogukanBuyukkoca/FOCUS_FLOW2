@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:math' as math;
 
@@ -11,13 +12,22 @@ class StarMapPage extends ConsumerStatefulWidget {
   ConsumerState<StarMapPage> createState() => _StarMapPageState();
 }
 
-class _StarMapPageState extends ConsumerState<StarMapPage> {
-  final ScrollController _scrollController = ScrollController();
-  StarSystem? _selectedStar;
-
+class _StarMapPageState extends ConsumerState<StarMapPage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _twinkleController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _twinkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
+  
   @override
   void dispose() {
-    _scrollController.dispose();
+    _twinkleController.dispose();
     super.dispose();
   }
 
@@ -26,115 +36,150 @@ class _StarMapPageState extends ConsumerState<StarMapPage> {
     final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
     final spaceData = ref.watch(spaceProgressProvider);
+    
     final isSmallScreen = size.width < 360;
 
     return Scaffold(
-      appBar: AppBar(
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            'Star Map',
-            style: TextStyle(fontSize: isSmallScreen ? 18 : 20),
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: EdgeInsets.only(right: isSmallScreen ? 8 : 16),
-            child: Center(
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isSmallScreen ? 8 : 12,
-                  vertical: isSmallScreen ? 4 : 6,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    '${spaceData.totalDistanceLightYears.toStringAsFixed(2)} ly',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: isSmallScreen ? 11 : 13,
-                    ),
+      body: Stack(
+        children: [
+          // Space background
+          _buildSpaceBackground(size),
+          
+          // Animated stars background
+          _buildAnimatedStars(size),
+          
+          // Content
+          SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: EdgeInsets.all(isSmallScreen ? 16.0 : 20.0),
+                  child: Column(
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Star Map',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: isSmallScreen ? 24 : 28,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: isSmallScreen ? 8 : 12),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Your Journey Through the Cosmos',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: isSmallScreen ? 13 : 15,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                
+                // Progress card
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isSmallScreen ? 16.0 : 20.0,
+                  ),
+                  child: _buildProgressCard(theme, spaceData, isSmallScreen),
+                ),
+                
+                SizedBox(height: isSmallScreen ? 16 : 20),
+                
+                // Star systems list
+                Expanded(
+                  child: ListView.builder(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 16.0 : 20.0,
+                      vertical: isSmallScreen ? 8.0 : 12.0,
+                    ),
+                    itemCount: starSystems.length,
+                    itemBuilder: (context, index) {
+                      return _buildStarSystemItem(
+                        starSystems[index],
+                        index,
+                        theme,
+                        spaceData,
+                        isSmallScreen,
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      extendBodyBehindAppBar: true,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0A0E27),
-              Color(0xFF1A1F3A),
-              Color(0xFF2D1B4E),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Progress indicator
-              _buildProgressIndicator(theme, spaceData, isSmallScreen),
-              
-              // Star map
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
-                  itemCount: starSystems.length,
-                  itemBuilder: (context, index) {
-                    return _buildStarSystemItem(
-                      starSystems[index],
-                      index,
-                      theme,
-                      spaceData,
-                      isSmallScreen,
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+    );
+  }
+
+  Widget _buildSpaceBackground(Size size) {
+    return Container(
+      width: size.width,
+      height: size.height,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF0a0e27),
+            Color(0xFF1a1a2e),
+            Color(0xFF16213e),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildProgressIndicator(
-    ThemeData theme,
-    SpaceProgressData spaceData,
-    bool isSmallScreen,
-  ) {
-    final currentStar = ref.read(spaceProgressProvider.notifier).getCurrentStar();
-    final nextStar = ref.read(spaceProgressProvider.notifier).getNextStar();
+  Widget _buildAnimatedStars(Size size) {
+    return AnimatedBuilder(
+      animation: _twinkleController,
+      builder: (context, child) {
+        return CustomPaint(
+          size: size,
+          painter: _BackgroundStarsPainter(
+            animation: _twinkleController.value,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProgressCard(ThemeData theme, SpaceProgressData spaceData, bool isSmallScreen) {
     final progress = ref.read(spaceProgressProvider.notifier).getProgressToNextStar();
+    final currentStar = starSystems[spaceData.currentStarIndex];
+    final nextStar = spaceData.currentStarIndex < starSystems.length - 1
+        ? starSystems[spaceData.currentStarIndex + 1]
+        : null;
 
     return Container(
-      margin: EdgeInsets.all(isSmallScreen ? 12 : 16),
-      padding: EdgeInsets.all(isSmallScreen ? 14 : 16),
+      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.9),
+        color: theme.colorScheme.surface.withOpacity(0.95),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: theme.colorScheme.primary.withOpacity(0.3),
           width: 2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.2),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
                 child: Column(
@@ -156,9 +201,9 @@ class _StarMapPageState extends ConsumerState<StarMapPage> {
                       fit: BoxFit.scaleDown,
                       child: Text(
                         currentStar.name,
-                        style: theme.textTheme.titleMedium?.copyWith(
+                        style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: isSmallScreen ? 13 : 16,
+                          fontSize: isSmallScreen ? 16 : 20,
                         ),
                       ),
                     ),
@@ -240,320 +285,354 @@ class _StarMapPageState extends ConsumerState<StarMapPage> {
     final isCurrent = spaceData.currentStarIndex == index;
     final isNext = spaceData.currentStarIndex + 1 == index;
     
-    final distanceFromPrevious = index > 0
-        ? star.distanceFromEarth - starSystems[index - 1].distanceFromEarth
-        : 0.0;
+    // Bir önceki yıldızdan bu yıldıza kadar gerekli süre
+    final timeFromPrevious = index > 0
+        ? star.focusSecondsRequired - starSystems[index - 1].focusSecondsRequired
+        : star.focusSecondsRequired;
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedStar = _selectedStar == star ? null : star;
-        });
-      },
-      child: Container(
-        margin: EdgeInsets.only(bottom: isSmallScreen ? 20 : 32),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left side - connection line and icon
-            SizedBox(
-              width: isSmallScreen ? 50 : 60,
-              child: Column(
-                children: [
-                  // Connection line from previous
-                  if (index > 0)
-                    Container(
-                      width: 2,
-                      height: isSmallScreen ? 30 : 40,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            isUnlocked
-                                ? theme.colorScheme.primary
-                                : Colors.grey.shade700,
-                            isUnlocked || isNext
-                                ? theme.colorScheme.primary.withOpacity(0.5)
-                                : Colors.grey.shade800,
-                          ],
-                        ),
-                      ),
-                    ),
-                  
-                  // Star icon
-                  Container(
-                    width: isSmallScreen ? 44 : 56,
-                    height: isSmallScreen ? 44 : 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isUnlocked
-                            ? [
-                                theme.colorScheme.primary,
-                                theme.colorScheme.secondary,
-                              ]
-                            : [
-                                Colors.grey.shade700,
-                                Colors.grey.shade900,
-                              ],
-                      ),
-                      boxShadow: [
-                        if (isCurrent)
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withOpacity(0.6),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                      ],
-                      border: Border.all(
-                        color: isCurrent
-                            ? theme.colorScheme.primary
-                            : Colors.transparent,
-                        width: 3,
-                      ),
-                    ),
-                    child: Icon(
-                      isUnlocked
-                          ? Icons.star_rounded
-                          : Icons.star_border_rounded,
-                      color: Colors.white,
-                      size: isSmallScreen ? 22 : 28,
-                    ),
-                  ),
-                  
-                  // Connection line to next
-                  if (index < starSystems.length - 1)
-                    Container(
-                      width: 2,
-                      height: isSmallScreen ? 30 : 40,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            isUnlocked
-                                ? theme.colorScheme.primary.withOpacity(0.5)
-                                : Colors.grey.shade800,
-                            isNext
-                                ? theme.colorScheme.primary.withOpacity(0.3)
-                                : Colors.grey.shade900,
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+    return Padding(
+      padding: EdgeInsets.only(bottom: isSmallScreen ? 12.0 : 16.0),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _showStarDetails(star, isUnlocked, timeFromPrevious, theme);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: EdgeInsets.all(isSmallScreen ? 14 : 16),
+          decoration: BoxDecoration(
+            color: isCurrent
+                ? theme.colorScheme.primary.withOpacity(0.15)
+                : theme.colorScheme.surface.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isCurrent
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outline.withOpacity(0.3),
+              width: isCurrent ? 2 : 1,
             ),
-            
-            // Right side - star info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(isSmallScreen ? 14 : 16),
-                    decoration: BoxDecoration(
-                      color: isCurrent
-                          ? theme.colorScheme.primary.withOpacity(0.15)
-                          : theme.colorScheme.surface.withOpacity(
-                              isUnlocked ? 0.8 : 0.4,
-                            ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isCurrent
-                            ? theme.colorScheme.primary
-                            : (isUnlocked
-                                ? theme.colorScheme.primary.withOpacity(0.3)
-                                : Colors.grey.withOpacity(0.2)),
-                        width: isCurrent ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+          ),
+          child: Row(
+            children: [
+              // Star icon with animation
+              Container(
+                width: isSmallScreen ? 44 : 48,
+                height: isSmallScreen ? 44 : 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isUnlocked
+                      ? theme.colorScheme.primary.withOpacity(0.2)
+                      : theme.colorScheme.surfaceContainerHighest,
+                ),
+                child: Center(
+                  child: Icon(
+                    isUnlocked ? Icons.star_rounded : Icons.star_border_rounded,
+                    color: isUnlocked
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withOpacity(0.4),
+                    size: isSmallScreen ? 24 : 28,
+                  ),
+                ),
+              ),
+              SizedBox(width: isSmallScreen ? 12 : 16),
+              
+              // Star info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
                       children: [
-                        // Star name and badges
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                star.name,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isUnlocked
-                                      ? theme.colorScheme.onSurface
-                                      : theme.colorScheme.onSurface.withOpacity(0.5),
-                                  fontSize: isSmallScreen ? 15 : 18,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              star.name,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: isSmallScreen ? 14 : 16,
                               ),
-                            ),
-                            if (isCurrent)
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isSmallScreen ? 6 : 8,
-                                  vertical: isSmallScreen ? 2 : 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'CURRENT',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: isSmallScreen ? 9 : 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (isNext && !isCurrent)
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isSmallScreen ? 6 : 8,
-                                  vertical: isSmallScreen ? 2 : 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.secondary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'NEXT',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: isSmallScreen ? 9 : 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        SizedBox(height: isSmallScreen ? 6 : 8),
-                        
-                        // Spectral type
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'Spectral Type: ${star.spectralType}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                isUnlocked ? 0.7 : 0.4,
-                              ),
-                              fontSize: isSmallScreen ? 11 : 12,
                             ),
                           ),
                         ),
-                        SizedBox(height: isSmallScreen ? 4 : 6),
-                        
-                        // Distance info with proper wrapping
-                        Wrap(
-                          spacing: isSmallScreen ? 8 : 12,
-                          runSpacing: 4,
-                          children: [
-                            _buildInfoChip(
-                              '${star.distanceFromEarth.toStringAsFixed(2)} ly',
-                              Icons.straighten_rounded,
-                              theme,
-                              isUnlocked,
-                              isSmallScreen,
-                            ),
-                            if (index > 0)
-                              _buildInfoChip(
-                                '+${distanceFromPrevious.toStringAsFixed(2)} ly',
-                                Icons.add_rounded,
-                                theme,
-                                isUnlocked,
-                                isSmallScreen,
-                              ),
-                            _buildInfoChip(
-                              '${star.focusHoursRequired}h',
-                              Icons.timer_rounded,
-                              theme,
-                              isUnlocked,
-                              isSmallScreen,
-                            ),
-                          ],
-                        ),
-                        
-                        // Description - expanded view
-                        if (_selectedStar == star) ...[
-                          SizedBox(height: isSmallScreen ? 10 : 12),
+                        if (isCurrent) ...[
+                          const SizedBox(width: 8),
                           Container(
-                            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withOpacity(0.1),
+                              color: theme.colorScheme.primary,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              star.description,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.8),
-                                fontSize: isSmallScreen ? 12 : 13,
-                                height: 1.4,
+                              'Current',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: isSmallScreen ? 9 : 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (isNext && !isCurrent) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Next',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: isSmallScreen ? 9 : 10,
                               ),
                             ),
                           ),
                         ],
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        star.spectralType,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          fontSize: isSmallScreen ? 11 : 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Focus time required
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      _formatDuration(timeFromPrevious),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isUnlocked
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface.withOpacity(0.6),
+                        fontSize: isSmallScreen ? 14 : 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      index > 0 ? 'from previous' : 'start',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                        fontSize: isSmallScreen ? 9 : 10,
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoChip(
-    String label,
-    IconData icon,
-    ThemeData theme,
-    bool isUnlocked,
-    bool isSmallScreen,
-  ) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 6 : 8,
-        vertical: isSmallScreen ? 3 : 4,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withOpacity(isUnlocked ? 0.2 : 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: isSmallScreen ? 12 : 14,
-            color: isUnlocked
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurface.withOpacity(0.4),
-          ),
-          SizedBox(width: isSmallScreen ? 3 : 4),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isUnlocked
-                  ? theme.colorScheme.onSurface
-                  : theme.colorScheme.onSurface.withOpacity(0.4),
-              fontSize: isSmallScreen ? 10 : 11,
+  void _showStarDetails(StarSystem star, bool isUnlocked, int timeFromPrevious, ThemeData theme) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final size = MediaQuery.of(context).size;
+        final isSmallScreen = size.width < 360;
+        
+        return Container(
+          margin: EdgeInsets.all(isSmallScreen ? 12 : 16),
+          padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: theme.colorScheme.primary.withOpacity(0.3),
+              width: 2,
             ),
           ),
-        ],
-      ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isUnlocked ? Icons.star_rounded : Icons.star_border_rounded,
+                    color: theme.colorScheme.primary,
+                    size: isSmallScreen ? 32 : 40,
+                  ),
+                  SizedBox(width: isSmallScreen ? 12 : 16),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        star.name,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: isSmallScreen ? 20 : 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              
+              _buildDetailRow(
+                'Spectral Type',
+                star.spectralType,
+                Icons.wb_sunny_rounded,
+                theme,
+                isSmallScreen,
+              ),
+              SizedBox(height: isSmallScreen ? 8 : 12),
+              
+              _buildDetailRow(
+                'Focus Time Required',
+                _formatDuration(timeFromPrevious),
+                Icons.timer_rounded,
+                theme,
+                isSmallScreen,
+              ),
+              SizedBox(height: isSmallScreen ? 8 : 12),
+              
+              _buildDetailRow(
+                'Total Time to Reach',
+                _formatDuration(star.focusSecondsRequired),
+                Icons.flight_rounded,
+                theme,
+                isSmallScreen,
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              
+              Container(
+                padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  star.description,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: isSmallScreen ? 13 : 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 16 : 20),
+              
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  Widget _buildDetailRow(String label, String value, IconData icon, ThemeData theme, bool isSmall) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: isSmall ? 18 : 20,
+          color: theme.colorScheme.primary,
+        ),
+        SizedBox(width: isSmall ? 8 : 12),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                fontSize: isSmall ? 12 : 14,
+              ),
+            ),
+          ),
+        ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: isSmall ? 13 : 15,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDuration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    
+    if (hours > 0 && minutes > 0) {
+      return '${hours}h ${minutes}m';
+    } else if (hours > 0) {
+      return '${hours}h';
+    } else {
+      return '${minutes}m';
+    }
+  }
+}
+
+// Background stars painter
+class _BackgroundStarsPainter extends CustomPainter {
+  final double animation;
+
+  _BackgroundStarsPainter({required this.animation});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    final random = math.Random(42);
+
+    for (int i = 0; i < 100; i++) {
+      final x = random.nextDouble() * size.width;
+      final y = random.nextDouble() * size.height;
+      final baseSize = random.nextDouble() * 2 + 0.5;
+      
+      // Twinkle effect
+      final twinkle = (math.sin(animation * math.pi * 2 + i) + 1) / 2;
+      final starSize = baseSize * (0.6 + twinkle * 0.4);
+      
+      paint.color = Colors.white.withOpacity(0.3 + twinkle * 0.4);
+      canvas.drawCircle(Offset(x, y), starSize, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BackgroundStarsPainter oldDelegate) {
+    return oldDelegate.animation != animation;
   }
 }

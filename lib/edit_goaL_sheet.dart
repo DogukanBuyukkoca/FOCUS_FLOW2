@@ -346,127 +346,198 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                     ),
                     const SizedBox(height: 16),
                     
-                    // Priority and Category
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<GoalPriority>(
-                            value: _priority,
-                            decoration: InputDecoration(
-                              labelText: 'Priority',
-                              prefixIcon: const Icon(Icons.priority_high_rounded),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                    // Priority and Category - Responsive with LayoutBuilder
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isSmallScreen = constraints.maxWidth < 360;
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<GoalPriority>(
+                                value: _priority,
+                                decoration: InputDecoration(
+                                  labelText: 'Priority',
+                                  prefixIcon: Icon(
+                                    Icons.priority_high_rounded,
+                                    size: isSmallScreen ? 18 : 24,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: isSmallScreen ? 8 : 12,
+                                    vertical: isSmallScreen ? 8 : 16,
+                                  ),
+                                ),
+                                items: GoalPriority.values.map((priority) {
+                                  return DropdownMenuItem(
+                                    value: priority,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(priority.name.toUpperCase()),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _priority = value;
+                                    });
+                                  }
+                                },
                               ),
                             ),
-                            items: GoalPriority.values.map((priority) {
-                              return DropdownMenuItem(
-                                value: priority,
-                                child: Text(priority.name.toUpperCase()),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _priority = value;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: DropdownButtonFormField<GoalCategory>(
-                            value: _category,
-                            decoration: InputDecoration(
-                              labelText: 'Category',
-                              prefixIcon: const Icon(Icons.category_rounded),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: DropdownButtonFormField<GoalCategory>(
+                                value: _category,
+                                decoration: InputDecoration(
+                                  labelText: 'Category',
+                                  prefixIcon: Icon(
+                                    Icons.category_rounded,
+                                    size: isSmallScreen ? 18 : 24,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: isSmallScreen ? 8 : 12,
+                                    vertical: isSmallScreen ? 8 : 16,
+                                  ),
+                                ),
+                                items: GoalCategory.values.map((category) {
+                                  return DropdownMenuItem(
+                                    value: category,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(category.name.toUpperCase()),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _category = value;
+                                    });
+                                  }
+                                },
                               ),
                             ),
-                            items: GoalCategory.values.map((category) {
-                              return DropdownMenuItem(
-                                value: category,
-                                child: Text(category.name.toUpperCase()),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _category = value;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     
-                    // Due Date and Time
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ListTile(
-                            onTap: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: _selectedDate ?? DateTime.now(),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 365)),
-                              );
-                              if (date != null) {
-                                setState(() {
-                                  _selectedDate = date;
-                                });
-                              }
-                            },
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: theme.colorScheme.outline),
+                    // Due Date and Time - FIX: Proper date validation
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isSmallScreen = constraints.maxWidth < 360;
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: ListTile(
+                                onTap: () async {
+                                  // Get current date without time
+                                  final now = DateTime.now();
+                                  final today = DateTime(now.year, now.month, now.day);
+                                  
+                                  // Determine initial date for picker
+                                  DateTime initialDate;
+                                  if (_selectedDate != null) {
+                                    // If selected date is before today, use today
+                                    if (_selectedDate!.isBefore(today)) {
+                                      initialDate = today;
+                                    } else {
+                                      initialDate = _selectedDate!;
+                                    }
+                                  } else {
+                                    initialDate = today;
+                                  }
+                                  
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    initialDate: initialDate,
+                                    firstDate: today, // Can't select past dates
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (date != null) {
+                                    setState(() {
+                                      _selectedDate = date;
+                                    });
+                                  }
+                                },
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: isSmallScreen ? 8 : 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(color: theme.colorScheme.outline),
+                                ),
+                                leading: Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: isSmallScreen ? 18 : 24,
+                                ),
+                                title: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    _selectedDate == null
+                                        ? 'Set Due Date'
+                                        : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                                    style: TextStyle(
+                                      fontSize: isSmallScreen ? 12 : 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                            leading: const Icon(Icons.calendar_today_rounded),
-                            title: Text(
-                              _selectedDate == null
-                                  ? 'Set Due Date'
-                                  : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ListTile(
+                                onTap: () async {
+                                  final time = await showTimePicker(
+                                    context: context,
+                                    initialTime: _reminderTime ?? TimeOfDay.now(),
+                                  );
+                                  if (time != null) {
+                                    setState(() {
+                                      _reminderTime = time;
+                                    });
+                                  }
+                                },
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: isSmallScreen ? 8 : 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(color: theme.colorScheme.outline),
+                                ),
+                                leading: Icon(
+                                  Icons.alarm_rounded,
+                                  size: isSmallScreen ? 18 : 24,
+                                ),
+                                title: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    _reminderTime == null
+                                        ? 'Set Reminder'
+                                        : _reminderTime!.format(context),
+                                    style: TextStyle(
+                                      fontSize: isSmallScreen ? 12 : 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ListTile(
-                            onTap: () async {
-                              final time = await showTimePicker(
-                                context: context,
-                                initialTime: _reminderTime ?? TimeOfDay.now(),
-                              );
-                              if (time != null) {
-                                setState(() {
-                                  _reminderTime = time;
-                                });
-                              }
-                            },
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: theme.colorScheme.outline),
-                            ),
-                            leading: const Icon(Icons.alarm_rounded),
-                            title: Text(
-                              _reminderTime == null
-                                  ? 'Set Reminder'
-                                  : _reminderTime!.format(context),
-                            ),
-                          ),
-                        ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     
-                    // Repeat Type
+                    // Repeat Type - Responsive Wrap
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -477,10 +548,14 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
+                          runSpacing: 8,
                           children: RepeatType.values.map((type) {
                             final isSelected = _repeatType == type;
                             return ChoiceChip(
-                              label: Text(type.name.toUpperCase()),
+                              label: Text(
+                                type.name.toUpperCase(),
+                                style: const TextStyle(fontSize: 12),
+                              ),
                               selected: isSelected,
                               onSelected: (selected) {
                                 setState(() {
@@ -526,6 +601,8 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                                         ? 'Tap to set duration'
                                         : '${_estimatedDuration.inHours}h ${_estimatedDuration.inMinutes.remainder(60)}m',
                                     style: theme.textTheme.bodyLarge,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
@@ -576,6 +653,8 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                                             ? TextDecoration.lineThrough 
                                             : null,
                                       ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   IconButton(
@@ -585,7 +664,7 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -639,12 +718,12 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                               ],
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     ),
                     const SizedBox(height: 16),
                     
-                    // Tags
+                    // Tags - Responsive
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -684,9 +763,14 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 8,
+                            runSpacing: 8,
                             children: _tags.map((tag) {
                               return Chip(
-                                label: Text(tag),
+                                label: Text(
+                                  tag,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                                 onDeleted: () {
                                   setState(() {
                                     _tags.remove(tag);
@@ -720,7 +804,7 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
             ),
           ),
           
-          // Action Buttons
+          // Action Buttons - Responsive
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -731,43 +815,58 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                 ),
               ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isSmallScreen = constraints.maxWidth < 360;
+                return Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            vertical: isSmallScreen ? 12 : 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: const Text('Cancel'),
+                        ),
                       ),
                     ),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: _updateGoal,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _updateGoal,
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            vertical: isSmallScreen ? 12 : 16,
+                          ),
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: const Text(
+                            'Update Goal',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    child: const Text(
-                      'Update Goal',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -822,7 +921,7 @@ class _TimeDurationPickerState extends State<TimeDurationPicker> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     
-    return Container(
+    return SizedBox(
       height: 200,
       child: Row(
         children: [

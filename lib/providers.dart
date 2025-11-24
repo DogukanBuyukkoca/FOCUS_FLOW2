@@ -4,13 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'services.dart' hide SessionType; // SessionType models.dart'tan gelecek
 
-// Selected Goal Provider
 final selectedGoalProvider = StateProvider<Goal?>((ref) => null);
-
-// ============================================================================
-// GOALS PROVIDER
-// ============================================================================
-
 final goalsProvider = StateNotifierProvider<GoalsNotifier, List<Goal>>((ref) {
   return GoalsNotifier();
 });

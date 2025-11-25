@@ -246,7 +246,7 @@ class NotificationService {
   }
   
   static Future<void> scheduleReminder(String time) async {
-    final details = NotificationDetails(
+    const details = NotificationDetails(
       android: const AndroidNotificationDetails(
         'focus_flow_reminders',
         'Daily Reminders',

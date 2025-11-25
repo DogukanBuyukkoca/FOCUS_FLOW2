@@ -86,8 +86,8 @@ class _MainShellState extends ConsumerState<MainShell> {
             builder: (context, constraints) {
               // Calculate if we need to use compact mode
               final availableWidth = constraints.maxWidth;
-              final itemCount = 6;
-              final minItemWidth = 50.0;
+              const itemCount = 6;
+              const minItemWidth = 50.0;
               final needsCompactMode = availableWidth / itemCount < minItemWidth;
               
               if (needsCompactMode || isTinyScreen) {

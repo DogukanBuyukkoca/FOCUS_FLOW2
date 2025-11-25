@@ -370,7 +370,7 @@ class _TimeDurationPickerState extends State<TimeDurationPicker> {
           ),
           
           // Separator
-          Container(
+          SizedBox(
             width: 40,
             child: Center(
               child: Text(
@@ -1015,7 +1015,7 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
                             children: [
                               // Priority Dropdown
                               DropdownButtonFormField<GoalPriority>(
-                                value: _priority,
+                                initialValue: _priority,
                                 decoration: InputDecoration(
                                   labelText: 'Priority',
                                   prefixIcon: const Icon(Icons.priority_high_rounded, size: 20),
@@ -1045,7 +1045,7 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
                               const SizedBox(height: 16),
                               // Category Dropdown
                               DropdownButtonFormField<GoalCategory>(
-                                value: _category,
+                                initialValue: _category,
                                 decoration: InputDecoration(
                                   labelText: 'Category',
                                   prefixIcon: const Icon(Icons.category_rounded, size: 20),
@@ -1084,7 +1084,7 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
                           children: [
                             Expanded(
                               child: DropdownButtonFormField<GoalPriority>(
-                                value: _priority,
+                                initialValue: _priority,
                                 decoration: InputDecoration(
                                   labelText: 'Priority',
                                   prefixIcon: const Icon(Icons.priority_high_rounded, size: 20),
@@ -1118,7 +1118,7 @@ class _AddGoalSheetState extends ConsumerState<AddGoalSheet> {
                             const SizedBox(width: 16), // Increased from 8 to 16
                             Expanded(
                               child: DropdownButtonFormField<GoalCategory>(
-                                value: _category,
+                                initialValue: _category,
                                 decoration: InputDecoration(
                                   labelText: 'Category',
                                   prefixIcon: const Icon(Icons.category_rounded, size: 20),

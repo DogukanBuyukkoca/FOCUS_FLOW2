@@ -354,7 +354,7 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                           children: [
                             Expanded(
                               child: DropdownButtonFormField<GoalPriority>(
-                                value: _priority,
+                                initialValue: _priority,
                                 decoration: InputDecoration(
                                   labelText: 'Priority',
                                   prefixIcon: Icon(
@@ -390,7 +390,7 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: DropdownButtonFormField<GoalCategory>(
-                                value: _category,
+                                initialValue: _category,
                                 decoration: InputDecoration(
                                   labelText: 'Category',
                                   prefixIcon: Icon(
@@ -831,9 +831,9 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: FittedBox(
+                        child: const FittedBox(
                           fit: BoxFit.scaleDown,
-                          child: const Text('Cancel'),
+                          child: Text('Cancel'),
                         ),
                       ),
                     ),
@@ -852,9 +852,9 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: FittedBox(
+                        child: const FittedBox(
                           fit: BoxFit.scaleDown,
-                          child: const Text(
+                          child: Text(
                             'Update Goal',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,

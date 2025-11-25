@@ -181,11 +181,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _buildSection(
                   title: 'About',
                   children: [
-                    SettingsTile(
+                    const SettingsTile(
                       title: 'Version',
                       subtitle: '1.0.0',
                       icon: Icons.info_rounded,
-                      trailing: const SizedBox.shrink(),
+                      trailing: SizedBox.shrink(),
                     ),
                     const Divider(height: 1),
                     SettingsTile(

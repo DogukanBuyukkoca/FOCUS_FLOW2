@@ -100,7 +100,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                 Container(
                   width: 64,
                   height: 64,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppTheme.primaryGradient,
                   ),
@@ -292,7 +292,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                 Container(
                   width: 56,
                   height: 56,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppTheme.primaryGradient,
                   ),
@@ -772,7 +772,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                             ),
                             child: Column(
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.format_quote_rounded,
                                   color: AppTheme.primaryColor,
                                   size: 32,

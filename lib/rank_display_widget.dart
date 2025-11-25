@@ -8,10 +8,10 @@ class RankDisplayWidget extends ConsumerWidget {
   final bool isCompact;
 
   const RankDisplayWidget({
-    Key? key,
+    super.key,
     this.showProgress = true,
     this.isCompact = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -298,7 +298,7 @@ class RankDisplayWidget extends ConsumerWidget {
 
 // Rank progression display for statistics page
 class RankProgressionWidget extends ConsumerWidget {
-  const RankProgressionWidget({Key? key}) : super(key: key);
+  const RankProgressionWidget({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -425,7 +425,7 @@ class RankProgressionWidget extends ConsumerWidget {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

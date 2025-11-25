@@ -320,13 +320,13 @@ class _GoalsPageState extends ConsumerState<GoalsPage> with TickerProviderStateM
             height: 80,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF6B46C1), // Deep purple
-                  const Color(0xFF9333EA), // Purple
-                  const Color(0xFF4C1D95), // Dark purple
+                  Color(0xFF6B46C1), // Deep purple
+                  Color(0xFF9333EA), // Purple
+                  Color(0xFF4C1D95), // Dark purple
                 ],
               ),
               boxShadow: [
@@ -611,7 +611,7 @@ class _PremiumStarsPainter extends CustomPainter {
     
     // Generate stars
     final random = math.Random(42); // Fixed seed for consistent star positions
-    final starCount = 20;
+    const starCount = 20;
     
     for (int i = 0; i < starCount; i++) {
       final x = random.nextDouble() * size.width;

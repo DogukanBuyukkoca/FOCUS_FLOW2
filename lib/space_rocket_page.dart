@@ -54,69 +54,74 @@ class _SpaceRocketPageState extends ConsumerState<SpaceRocketPage>
   }
 
   Future<void> _handleLaunch() async {
-    final spaceData = ref.read(spaceProgressProvider);
-    
-    if (spaceData.unspentFocusSeconds <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No fuel available! Focus to earn fuel.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    HapticFeedback.heavyImpact();
-    
-    setState(() {
-      _isLaunching = true;
-      _animatedFuelValue = spaceData.unspentFocusSeconds;
-    });
-
-    // Start launch animation
-    _launchController.forward(from: 0);
-    
-    // Animate fuel countdown
-    await ref.read(spaceProgressProvider.notifier).consumeFuelAnimated((remainingFuel) {
-      if (mounted) {
-        setState(() {
-          _animatedFuelValue = remainingFuel;
-        });
-      }
-    });
-    
-    setState(() {
-      _isLaunching = false;
-    });
-    
-    _launchController.reset();
-    
-    HapticFeedback.mediumImpact();
-    
-    // Show completion message
-    if (mounted) {
-      final focusSeconds = spaceData.unspentFocusSeconds;
-      final hours = focusSeconds ~/ 3600;
-      final minutes = (focusSeconds % 3600) ~/ 60;
-      
-      String message = 'Journey complete! Used ';
-      if (hours > 0) {
-        message += '${hours}h ';
-      }
-      if (minutes > 0 || hours == 0) {
-        message += '${minutes}m ';
-      }
-      message += 'of focus time!';
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
+  final spaceData = ref.read(spaceProgressProvider);
+  
+  if (spaceData.unspentFocusSeconds <= 0) {
+    if (!mounted) return;  // ✅ MOUNTED KONTROLÜ EKLENDİ
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No fuel available! Focus to earn fuel.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    return;
   }
+
+  HapticFeedback.heavyImpact();
+  
+  if (!mounted) return;  // ✅ MOUNTED KONTROLÜ EKLENDİ
+  setState(() {
+    _isLaunching = true;
+    _animatedFuelValue = spaceData.unspentFocusSeconds;
+  });
+
+  // Start launch animation
+  _launchController.forward(from: 0);
+  
+  // Animate fuel countdown
+  await ref.read(spaceProgressProvider.notifier).consumeFuelAnimated((remainingFuel) {
+    if (mounted) {
+      setState(() {
+        _animatedFuelValue = remainingFuel;
+      });
+    }
+  });
+  
+  // ✅ KRİTİK: MOUNTED KONTROLÜ EKLENDİ (HATA BURADAYDı!)
+  if (!mounted) return;
+  
+  setState(() {
+    _isLaunching = false;
+  });
+  
+  _launchController.reset();
+  
+  HapticFeedback.mediumImpact();
+  
+  // Show completion message
+  if (mounted) {
+    final focusSeconds = spaceData.unspentFocusSeconds;
+    final hours = focusSeconds ~/ 3600;
+    final minutes = (focusSeconds % 3600) ~/ 60;
+    
+    String message = 'Journey complete! Used ';
+    if (hours > 0) {
+      message += '${hours}h ';
+    }
+    if (minutes > 0 || hours == 0) {
+      message += '${minutes}m ';
+    }
+    message += 'of focus time!';
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {

@@ -155,11 +155,12 @@ class TimerNotifier extends StateNotifier<TimerState> {
           progress: progress,
         );
 
-        // SADECE FOCUS OTURUMLARINDA süreyi kaydet
+        // SADECE FOCUS OTURUMLARINDA available fuel'i artır
+        // Total focus time ve star map % ateşlemede artacak
         if (state.sessionType == SessionType.focus) {
           _accumulatedFocusSeconds++;
-          // Her saniye space progress'e kaydet
-          await ref.read(spaceProgressProvider.notifier).addFocusTime(1);
+          // Sadece available fuel (unspent) artacak, total focus time artmayacak
+          await ref.read(spaceProgressProvider.notifier).addUnspentFuelOnly(1);
         }
       } else {
         timer.cancel();

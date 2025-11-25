@@ -257,7 +257,19 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
     return rankName;
   }
 
-  // Odaklanma süresi ekle
+  // YENİ FONKSİYON: Sadece available fuel (unspent) artır
+  // Total focus time ve star map % artmayacak
+  Future<void> addUnspentFuelOnly(int seconds) async {
+    final newUnspent = state.unspentFocusSeconds + seconds;
+
+    state = state.copyWith(
+      unspentFocusSeconds: newUnspent,
+    );
+
+    await _spaceBox.put('unspent_focus_seconds', newUnspent);
+  }
+
+  // ESKİ FONKSİYON: Hem total hem unspent artır (şimdi kullanılmıyor timer'da)
   Future<void> addFocusTime(int seconds) async {
     final newTotal = state.totalFocusSeconds + seconds;
     final newUnspent = state.unspentFocusSeconds + seconds;
@@ -280,11 +292,14 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
     await _spaceBox.put('unlocked_stars', starData['unlocked']);
   }
 
-  // Yakıt harca (roket fırlatma)
+  // DÜZELTME: Yakıt harca (roket fırlatma) ve animasyonlu olarak total focus time artır
   Future<void> consumeFuelAnimated(Function(int) onUpdate) async {
     final startingFuel = state.unspentFocusSeconds;
     
     if (startingFuel <= 0) return;
+
+    // Başlangıç total focus time'ı kaydet
+    final startingTotal = state.totalFocusSeconds;
 
     // 5 saniyelik animasyon
     const totalFrames = 60;
@@ -297,15 +312,38 @@ class SpaceProgressNotifier extends StateNotifier<SpaceProgressData> {
       double progress = i / totalFrames;
       progress = 1 - (1 - progress) * (1 - progress) * (1 - progress);
       
+      // Available fuel azalıyor (eskiden kalanı göster)
       int remainingFuel = (startingFuel * (1 - progress)).round();
       
-      state = state.copyWith(unspentFocusSeconds: remainingFuel);
+      // Total focus time artıyor (başlangıçtan itibaren ekle)
+      // DÜZELTME: Her frame'de startingTotal + (startingFuel * progress)
+      int currentTotal = startingTotal + (startingFuel * progress).round();
+      
+      state = state.copyWith(
+        unspentFocusSeconds: remainingFuel,
+        totalFocusSeconds: currentTotal,
+      );
+      
       onUpdate(remainingFuel);
     }
     
-    // Animasyon bittiğinde final değerleri kaydet
-    state = state.copyWith(unspentFocusSeconds: 0);
+    // Animasyon bittiğinde final değerleri hesapla ve kaydet
+    final finalTotal = startingTotal + startingFuel;
+    final newRank = _calculateRank(finalTotal);
+    final starData = _checkStarProgress(finalTotal);
+    
+    state = state.copyWith(
+      unspentFocusSeconds: 0,
+      totalFocusSeconds: finalTotal,
+      currentRank: newRank,
+      currentStarIndex: starData['index'],
+      unlockedStars: starData['unlocked'],
+    );
+    
     await _spaceBox.put('unspent_focus_seconds', 0);
+    await _spaceBox.put('total_focus_seconds', finalTotal);
+    await _spaceBox.put('current_star_index', starData['index']);
+    await _spaceBox.put('unlocked_stars', starData['unlocked']);
   }
 
   Map<String, dynamic> _checkStarProgress(int currentFocusSeconds) {

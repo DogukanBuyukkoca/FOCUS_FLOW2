@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:glass_kit/glass_kit.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:math' as math;
 import 'app_theme.dart';
 import 'timer_provider.dart';
 import 'widgets.dart';
@@ -22,6 +23,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _scaleController;
+  late AnimationController _twinkleController;
   bool _isDeepFocusEnabled = false;
 
   @override
@@ -31,17 +33,23 @@ class _TimerPageState extends ConsumerState<TimerPage>
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _scaleController = AnimationController(
       duration: AppTheme.animBase,
       vsync: this,
     );
+
+    _twinkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     _scaleController.dispose();
+    _twinkleController.dispose();
     super.dispose();
   }
 
@@ -76,6 +84,38 @@ class _TimerPageState extends ConsumerState<TimerPage>
       return '$hours:$minutes:$seconds';
     }
     return '$minutes:$seconds';
+  }
+
+  Widget _buildSpaceBackground(Size size) {
+    return Container(
+      width: size.width,
+      height: size.height,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF0a0e27),
+            Color(0xFF1a1a2e),
+            Color(0xFF16213e),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedStars(Size size) {
+    return AnimatedBuilder(
+      animation: _twinkleController,
+      builder: (context, child) {
+        return CustomPaint(
+          size: size,
+          painter: _BackgroundStarsPainter(
+            animation: _twinkleController.value,
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showDNDPermissionDialog() async {
@@ -379,26 +419,19 @@ class _TimerPageState extends ConsumerState<TimerPage>
     final actualTimerSize = timerSize > maxTimerSize ? maxTimerSize : timerSize;
     
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [
-                    AppTheme.darkBackground,
-                    AppTheme.darkSurface,
-                  ]
-                : [
-                    AppTheme.lightBackground,
-                    Colors.white,
-                  ],
-          ),
-        ),
-        child: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+      body: Stack(
+        children: [
+          // Space background
+          _buildSpaceBackground(size),
+
+          // Animated stars background
+          _buildAnimatedStars(size),
+
+          // Content
+          SafeArea(
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
               // App Bar
               SliverAppBar(
                 floating: true,
@@ -583,9 +616,21 @@ class _TimerPageState extends ConsumerState<TimerPage>
                         'Focus Flow',
                         style: theme.textTheme.headlineLarge?.copyWith(
                           foreground: Paint()
-                            ..shader = AppTheme.primaryGradient.createShader(
+                            ..shader = const LinearGradient(
+                              colors: [
+                                Color(0xFF00D4FF),
+                                Color(0xFF7B2FFF),
+                              ],
+                            ).createShader(
                               const Rect.fromLTWH(0.0, 0.0, 200.0, 70.0),
                             ),
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(
+                              color: const Color(0xFF00D4FF).withOpacity(0.3),
+                              blurRadius: 15,
+                            ),
+                          ],
                         ),
                       ).animate().fadeIn(duration: AppTheme.animSlow),
                     ),
@@ -629,9 +674,14 @@ class _TimerPageState extends ConsumerState<TimerPage>
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.primaryColor.withOpacity(0.3),
+                                    color: const Color(0xFF00D4FF).withOpacity(0.4),
                                     blurRadius: 60,
                                     spreadRadius: 10,
+                                  ),
+                                  BoxShadow(
+                                    color: const Color(0xFF7B2FFF).withOpacity(0.3),
+                                    blurRadius: 80,
+                                    spreadRadius: 5,
                                   ),
                                 ],
                               ),
@@ -644,39 +694,47 @@ class _TimerPageState extends ConsumerState<TimerPage>
                               curve: Curves.easeInOut,
                             ),
                           
-                          // Glass background
-                          GlassContainer(
+                          // Glass background with darker overlay for better contrast
+                          Container(
                             width: actualTimerSize,
                             height: actualTimerSize,
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withOpacity(0.1),
-                                Colors.white.withOpacity(0.05),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF1a1a2e).withOpacity(0.8),
+                                  const Color(0xFF16213e).withOpacity(0.9),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.1),
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 20,
+                                  spreadRadius: 5,
+                                ),
                               ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
                             ),
-                            borderGradient: LinearGradient(
-                              colors: [
-                                Colors.white.withOpacity(0.2),
-                                Colors.white.withOpacity(0.1),
-                              ],
-                            ),
-                            blur: 10,
-                            borderRadius: BorderRadius.circular(actualTimerSize / 2),
-                            elevation: 0,
-                            shadowColor: Colors.black.withOpacity(0.1),
                           ),
-                          
+
                           // Progress Indicator
                           CircularPercentIndicator(
                             radius: actualTimerSize / 2,
-                            lineWidth: 8,
+                            lineWidth: 10,
                             percent: timerState.progress,
-                            backgroundColor: isDark
-                                ? Colors.white.withOpacity(0.1)
-                                : Colors.black.withOpacity(0.1),
-                            linearGradient: AppTheme.primaryGradient,
+                            backgroundColor: Colors.white.withOpacity(0.15),
+                            linearGradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF00D4FF),
+                                Color(0xFF7B2FFF),
+                                Color(0xFFFF2E63),
+                              ],
+                            ),
                             circularStrokeCap: CircularStrokeCap.round,
                             animation: true,
                             animationDuration: 300,
@@ -688,19 +746,29 @@ class _TimerPageState extends ConsumerState<TimerPage>
                                   style: theme.textTheme.displayMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 2,
+                                    color: Colors.white,
+                                    fontSize: 48,
+                                    shadows: [
+                                      Shadow(
+                                        color: const Color(0xFF00D4FF).withOpacity(0.5),
+                                        blurRadius: 10,
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(height: AppTheme.spacing8),
                                 Text(
-                                  timerState.isSpecialSession 
-                                      ? 'Special Focus' 
+                                  timerState.isSpecialSession
+                                      ? 'Special Focus'
                                       : timerState.sessionType == SessionType.focus
                                           ? 'Focus Time'
                                           : timerState.sessionType == SessionType.shortBreak
                                               ? 'Short Break'
                                               : 'Long Break',
                                   style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                    color: const Color(0xFF00D4FF).withOpacity(0.8),
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 16,
                                   ),
                                 ),
                               ],
@@ -744,37 +812,38 @@ class _TimerPageState extends ConsumerState<TimerPage>
                         builder: (context, constraints) {
                           return Container(
                             constraints: BoxConstraints(
-                              maxWidth: constraints.maxWidth > 600 
-                                  ? 500 
+                              maxWidth: constraints.maxWidth > 600
+                                  ? 500
                                   : constraints.maxWidth - 32,
                             ),
                             padding: const EdgeInsets.all(AppTheme.spacing20),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: isDark
-                                    ? [
-                                        AppTheme.darkSurface.withOpacity(0.6),
-                                        AppTheme.darkSurface.withOpacity(0.3),
-                                      ]
-                                    : [
-                                        Colors.white.withOpacity(0.8),
-                                        Colors.white.withOpacity(0.4),
-                                      ],
+                                colors: [
+                                  const Color(0xFF1a1a2e).withOpacity(0.7),
+                                  const Color(0xFF16213e).withOpacity(0.8),
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(AppTheme.radius24),
                               border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withOpacity(0.1)
-                                    : Colors.black.withOpacity(0.05),
+                                color: const Color(0xFF00D4FF).withOpacity(0.2),
+                                width: 1.5,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF7B2FFF).withOpacity(0.1),
+                                  blurRadius: 15,
+                                  spreadRadius: 2,
+                                ),
+                              ],
                             ),
                             child: Column(
                               children: [
                                 const Icon(
                                   Icons.format_quote_rounded,
-                                  color: AppTheme.primaryColor,
+                                  color: const Color(0xFF00D4FF),
                                   size: 32,
                                 ),
                                 const SizedBox(height: AppTheme.spacing12),
@@ -783,6 +852,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     fontStyle: FontStyle.italic,
                                     fontSize: 13,
+                                    color: Colors.white.withOpacity(0.9),
                                   ),
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
@@ -793,6 +863,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                                   '- Mark Twain',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     fontSize: 11,
+                                    color: const Color(0xFF7B2FFF).withOpacity(0.8),
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -805,9 +876,10 @@ class _TimerPageState extends ConsumerState<TimerPage>
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -817,7 +889,6 @@ class _TimerPageState extends ConsumerState<TimerPage>
     required bool isRunning,
     required double size,
   }) {
-    
     return GestureDetector(
       onTap: onPressed,
       child: AnimatedContainer(
@@ -826,12 +897,25 @@ class _TimerPageState extends ConsumerState<TimerPage>
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: AppTheme.primaryGradient,
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF00D4FF),
+              Color(0xFF7B2FFF),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.4),
-              blurRadius: 20,
+              color: const Color(0xFF00D4FF).withOpacity(0.5),
+              blurRadius: 25,
               offset: const Offset(0, 10),
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: const Color(0xFF7B2FFF).withOpacity(0.3),
+              blurRadius: 30,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -858,18 +942,27 @@ class _TimerPageState extends ConsumerState<TimerPage>
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: backgroundColor,
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF1a1a2e).withOpacity(0.8),
+              const Color(0xFF16213e).withOpacity(0.9),
+            ],
+          ),
+          border: Border.all(
+            color: const Color(0xFFFF2E63).withOpacity(0.3),
+            width: 2,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
+              color: const Color(0xFFFF2E63).withOpacity(0.3),
+              blurRadius: 15,
               offset: const Offset(0, 5),
             ),
           ],
         ),
         child: Icon(
           icon,
-          color: iconColor,
+          color: const Color(0xFFFF2E63),
           size: size * 0.45,
         ),
       ),
@@ -877,7 +970,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
   }
 }
 
-// Custom Painter for Stars Background
+// Custom Painter for Stars Background in Toggle Switch
 class _StarsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -901,4 +994,35 @@ class _StarsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Background stars painter for animated starfield
+class _BackgroundStarsPainter extends CustomPainter {
+  final double animation;
+
+  _BackgroundStarsPainter({required this.animation});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    final random = math.Random(42);
+
+    for (int i = 0; i < 100; i++) {
+      final x = random.nextDouble() * size.width;
+      final y = random.nextDouble() * size.height;
+      final baseSize = random.nextDouble() * 2 + 0.5;
+
+      // Twinkle effect
+      final twinkle = (math.sin(animation * math.pi * 2 + i) + 1) / 2;
+      final starSize = baseSize * (0.6 + twinkle * 0.4);
+
+      paint.color = Colors.white.withOpacity(0.3 + twinkle * 0.4);
+      canvas.drawCircle(Offset(x, y), starSize, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BackgroundStarsPainter oldDelegate) {
+    return oldDelegate.animation != animation;
+  }
 }

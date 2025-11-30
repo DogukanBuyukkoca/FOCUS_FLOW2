@@ -29,13 +29,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             pinned: true,
             backgroundColor: theme.scaffoldBackgroundColor,
             elevation: 0,
-            leading: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: theme.colorScheme.onSurface,
-              ),
-              onPressed: () => Navigator.pop(context),
-            ),
+            automaticallyImplyLeading: false,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 'Settings',
@@ -45,7 +39,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
               ),
               centerTitle: false,
-              titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
             ),
           ),
 

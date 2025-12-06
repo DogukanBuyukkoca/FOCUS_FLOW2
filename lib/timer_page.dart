@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'package:glass_kit/glass_kit.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:math' as math;
 import 'app_theme.dart';
@@ -70,9 +69,9 @@ class _TimerPageState extends ConsumerState<TimerPage>
     }
   }
 
-  void _handleReset() {
+  Future<void> _handleReset() async {
     HapticFeedback.mediumImpact();
-    ref.read(timerProvider.notifier).reset();
+    await ref.read(timerProvider.notifier).reset();
     _scaleController.reverse();
   }
 

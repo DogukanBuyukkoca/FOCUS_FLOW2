@@ -123,8 +123,42 @@ class TimerNotifier extends StateNotifier<TimerState> {
     _startTimer();
   }
 
-  void reset() {
+  Future<void> reset() async {
     _timer?.cancel();
+
+    // Reset'e basıldığında da session'ı kaydet
+    if (state.sessionType == SessionType.focus && !state.isCompleted) {
+      final completedMinutes = (state.targetDuration.inSeconds - state.remaining.inSeconds) ~/ 60;
+
+      if (completedMinutes > 0) {
+        print('💾 Saving session (from reset): $completedMinutes minutes at ${DateTime.now()}');
+        await StorageService.saveSession(
+          DateTime.now(),
+          completedMinutes,
+        );
+        print('✅ Session saved successfully!');
+
+        final newTodayCount = await StorageService.getTodaySessionCount();
+        final newTotalCount = state.totalSessions + 1;
+
+        state = state.copyWith(
+          todaysSessions: newTodayCount,
+          totalSessions: newTotalCount,
+        );
+
+        // Goal progress güncelle
+        if (state.selectedGoalId != null) {
+          final goal = StorageService.getGoal(state.selectedGoalId!);
+          if (goal != null) {
+            final updatedGoal = goal.copyWith(
+              actualMinutes: goal.actualMinutes + completedMinutes,
+            );
+            await StorageService.updateGoal(updatedGoal);
+          }
+        }
+      }
+    }
+
     _sessionStartTime = null;
     _accumulatedFocusSeconds = 0;
 

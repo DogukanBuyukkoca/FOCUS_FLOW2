@@ -3,7 +3,6 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:math';
-import 'models.dart';
 
 // ============================================================================
 // SMART NOTIFICATION SERVICE

@@ -843,7 +843,7 @@ class _TimerPageState extends ConsumerState<TimerPage>
                               children: [
                                 const Icon(
                                   Icons.format_quote_rounded,
-                                  color: const Color(0xFF00D4FF),
+                                  color: Color(0xFF00D4FF),
                                   size: 32,
                                 ),
                                 const SizedBox(height: AppTheme.spacing12),

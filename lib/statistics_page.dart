@@ -17,13 +17,27 @@ class StatisticsPage extends ConsumerStatefulWidget {
 
 class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   TimePeriod _selectedPeriod = TimePeriod.week;
-  
+
+  @override
+  void initState() {
+    super.initState();
+    // Sayfa açıldığında provider'ı yenile
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(statisticsProvider);
+    });
+  }
+
+  Future<void> _refreshStats() async {
+    ref.invalidate(statisticsProvider);
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final stats = ref.watch(statisticsProvider(_selectedPeriod));
-    
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -36,9 +50,13 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
           ),
         ),
         child: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+          child: RefreshIndicator(
+            onRefresh: _refreshStats,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
               // App Bar
               SliverAppBar(
                 floating: true,
@@ -50,20 +68,15 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                 ).animate().fadeIn(),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.share_rounded),
+                    icon: const Icon(Icons.refresh_rounded),
                     onPressed: () {
-                      // Share statistics
+                      ref.invalidate(statisticsProvider);
                     },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.download_rounded),
-                    onPressed: () {
-                      // Export data
-                    },
+                    tooltip: 'Refresh Statistics (No Erase)',
                   ),
                 ],
               ),
-              
+
               // Content
               SliverToBoxAdapter(
                 child: Padding(
@@ -80,210 +93,64 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                           });
                         },
                       ).animate().fadeIn().slideY(begin: -0.1),
-                      
+
                       const SizedBox(height: AppTheme.spacing24),
-                      
+
                       // Summary Cards
                       stats.when(
                         data: (data) => Column(
                           children: [
-                            // Total Focus Time
+                            // Total Focus Time - Period tabanlı
                             _buildSummaryCard(
-                              title: 'Total Focus Time',
+                              title: _getPeriodLabel(_selectedPeriod),
                               value: _formatDuration(data.totalFocusTime),
                               icon: Icons.timer_rounded,
                               color: AppTheme.primaryColor,
                               trend: data.focusTimeTrend,
                             ).animate().fadeIn(delay: 100.ms).slideX(begin: -0.2),
-                            
+
                             const SizedBox(height: AppTheme.spacing16),
-                            
-                            // Statistics Grid
+
+                            // Streak Cards - Güncel ve En İyi Streak
                             Row(
                               children: [
                                 Expanded(
-                                  child: StatCard(
-                                    title: 'Sessions',
-                                    value: '${data.totalSessions}',
-                                    icon: Icons.play_circle_outline_rounded,
-                                    color: AppTheme.secondaryColor,
-                                    change: data.sessionsChange,
+                                  child: _buildStreakCard(
+                                    title: 'Current Streak',
+                                    streakDays: data.currentStreak,
+                                    isCurrent: true,
                                   ).animate().fadeIn(delay: 200.ms).scale(),
                                 ),
                                 const SizedBox(width: AppTheme.spacing12),
                                 Expanded(
                                   child: StatCard(
-                                    title: 'Avg Duration',
-                                    value: '${data.averageSessionMinutes} min',
-                                    icon: Icons.av_timer_rounded,
-                                    color: Colors.orange,
-                                    change: data.avgDurationChange,
+                                    title: 'Best Streak',
+                                    value: '${data.bestStreak} days',
+                                    icon: Icons.emoji_events_rounded,
+                                    color: Colors.amber,
                                   ).animate().fadeIn(delay: 250.ms).scale(),
                                 ),
                               ],
                             ),
-                            
-                            const SizedBox(height: AppTheme.spacing12),
-                            
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: StatCard(
-                                    title: 'Best Streak',
-                                    value: '${data.bestStreak} days',
-                                    icon: Icons.local_fire_department_rounded,
-                                    color: Colors.red,
-                                  ).animate().fadeIn(delay: 300.ms).scale(),
-                                ),
-                                const SizedBox(width: AppTheme.spacing12),
-                                Expanded(
-                                  child: StatCard(
-                                    title: 'Completion',
-                                    value: '${data.completionRate}%',
-                                    icon: Icons.check_circle_outline_rounded,
-                                    color: Colors.green,
-                                    change: data.completionChange,
-                                  ).animate().fadeIn(delay: 350.ms).scale(),
-                                ),
-                              ],
-                            ),
-                            
+
                             const SizedBox(height: AppTheme.spacing24),
-                            
-                            // Daily Chart
-                            GlassContainer(
-                              width: 150,
-                              height: 250,
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white.withOpacity(0.1),
-                                  Colors.white.withOpacity(0.05),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderGradient: LinearGradient(
-                                colors: [
-                                  Colors.white.withOpacity(0.2),
-                                  Colors.white.withOpacity(0.1),
-                                ],
-                              ),
-                              blur: 10,
-                              borderRadius: BorderRadius.circular(AppTheme.radius16),
-                              elevation: 0,
-                              child: Padding(
-                                padding: const EdgeInsets.all(AppTheme.spacing16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Daily Progress',
-                                      style: theme.textTheme.headlineSmall,
-                                    ),
-                                    const SizedBox(height: AppTheme.spacing16),
-                                    Expanded(
-                                      child: BarChart(
-                                        BarChartData(
-                                          alignment: BarChartAlignment.spaceAround,
-                                          maxY: data.maxDailyMinutes.toDouble() * 1.2,
-                                          barTouchData: BarTouchData(
-                                            enabled: true,
-                                            touchTooltipData: BarTouchTooltipData(
-                                              //tooltipColor: theme.colorScheme.surface,
-                                              tooltipRoundedRadius: AppTheme.radius8,
-                                              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                                                return BarTooltipItem(
-                                                  '${rod.toY.toInt()} min',
-                                                  TextStyle(
-                                                    color: theme.colorScheme.onSurface,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                          titlesData: FlTitlesData(
-                                            show: true,
-                                            bottomTitles: AxisTitles(
-                                              sideTitles: SideTitles(
-                                                showTitles: true,
-                                                getTitlesWidget: (value, meta) {
-                                                  final labels = data.dailyLabels;
-                                                  if (value.toInt() < labels.length) {
-                                                    return Text(
-                                                      labels[value.toInt()],
-                                                      style: theme.textTheme.bodySmall,
-                                                    );
-                                                  }
-                                                  return const Text('');
-                                                },
-                                                reservedSize: 30,
-                                              ),
-                                            ),
-                                            leftTitles: AxisTitles(
-                                              sideTitles: SideTitles(
-                                                showTitles: true,
-                                                reservedSize: 40,
-                                                getTitlesWidget: (value, meta) {
-                                                  return Text(
-                                                    '${value.toInt()}',
-                                                    style: theme.textTheme.bodySmall,
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                            topTitles: const AxisTitles(
-                                              sideTitles: SideTitles(showTitles: false),
-                                            ),
-                                            rightTitles: const AxisTitles(
-                                              sideTitles: SideTitles(showTitles: false),
-                                            ),
-                                          ),
-                                          borderData: FlBorderData(show: false),
-                                          barGroups: data.dailyData.asMap().entries.map((entry) {
-                                            return BarChartGroupData(
-                                              x: entry.key,
-                                              barRods: [
-                                                BarChartRodData(
-                                                  toY: entry.value.toDouble(),
-                                                  gradient: AppTheme.primaryGradient,
-                                                  width: 20,
-                                                  borderRadius: const BorderRadius.vertical(
-                                                    top: Radius.circular(AppTheme.radius8),
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          }).toList(),
-                                          gridData: FlGridData(
-                                            show: true,
-                                            drawVerticalLine: false,
-                                            horizontalInterval: 30,
-                                            getDrawingHorizontalLine: (value) {
-                                              return FlLine(
-                                                color: theme.colorScheme.onSurface.withOpacity(0.1),
-                                                strokeWidth: 1,
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1),
-                            
+
+                            // Pie Chart - Dairesel pasta grafiği
+                            _buildPieChart(data)
+                                .animate()
+                                .fadeIn(delay: 400.ms)
+                                .slideY(begin: 0.1),
+
                             const SizedBox(height: AppTheme.spacing24),
-                            
+
                             // Productivity Heatmap
                             _buildProductivityHeatmap(data)
                                 .animate()
                                 .fadeIn(delay: 500.ms)
                                 .slideY(begin: 0.1),
-                            
+
                             const SizedBox(height: AppTheme.spacing24),
-                            
+
                             // Best Focus Hours
                             _buildBestHoursCard(data)
                                 .animate()
@@ -304,11 +171,25 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
               ),
             ],
           ),
+            ),
+          ),
         ),
-      ),
-    );
+      );
   }
-  
+
+  String _getPeriodLabel(TimePeriod period) {
+    switch (period) {
+      case TimePeriod.day:
+        return 'Daily Focus Time';
+      case TimePeriod.week:
+        return 'Weekly Focus Time';
+      case TimePeriod.month:
+        return 'Monthly Focus Time';
+      case TimePeriod.year:
+        return 'Yearly Focus Time';
+    }
+  }
+
   Widget _buildSummaryCard({
     required String title,
     required String value,
@@ -317,7 +198,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
     double? trend,
   }) {
     final theme = Theme.of(context);
-    
+
     return Container(
       padding: const EdgeInsets.all(AppTheme.spacing20),
       decoration: BoxDecoration(
@@ -398,22 +279,205 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
       ),
     );
   }
-  
+
+  // Renk kodlu animasyonlu streak kartı
+  Widget _buildStreakCard({
+    required String title,
+    required int streakDays,
+    required bool isCurrent,
+  }) {
+    final theme = Theme.of(context);
+
+    // Streak gün sayısına göre renk belirleme
+    Color streakColor;
+    if (streakDays == 0) {
+      streakColor = Colors.red;
+    } else if (streakDays < 3) {
+      streakColor = Colors.red;
+    } else if (streakDays < 7) {
+      streakColor = Colors.yellow;
+    } else if (streakDays < 10) {
+      streakColor = Colors.orange;
+    } else if (streakDays < 14) {
+      streakColor = Colors.green;
+    } else if (streakDays < 20) {
+      streakColor = Colors.purple;
+    } else {
+      streakColor = const Color(0xFF9B59B6); // Eflatun
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spacing16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            streakColor.withOpacity(0.3),
+            streakColor.withOpacity(0.1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radius16),
+        border: Border.all(
+          color: streakColor.withOpacity(0.5),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: streakColor.withOpacity(0.3),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.local_fire_department_rounded,
+                color: streakColor,
+                size: 24,
+              )
+                  .animate(onPlay: (controller) => controller.repeat())
+                  .shimmer(
+                    duration: 2000.ms,
+                    color: Colors.white.withOpacity(0.5),
+                  )
+                  .shake(duration: 1000.ms, delay: 500.ms, hz: 2),
+              const SizedBox(width: AppTheme.spacing8),
+              Text(
+                title,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacing8),
+          Text(
+            '$streakDays days',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: streakColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Pie Chart Widget
+  Widget _buildPieChart(StatisticsData data) {
+    final theme = Theme.of(context);
+
+    // Günlük verileri kullanarak pasta grafiği için bölümler oluştur
+    final sections = <PieChartSectionData>[];
+    final colors = [
+      AppTheme.primaryColor,
+      AppTheme.secondaryColor,
+      Colors.orange,
+      Colors.green,
+      Colors.purple,
+      Colors.pink,
+      Colors.cyan,
+    ];
+
+    for (int i = 0; i < data.dailyData.length; i++) {
+      if (data.dailyData[i] > 0) {
+        sections.add(
+          PieChartSectionData(
+            value: data.dailyData[i].toDouble(),
+            title: '${data.dailyLabels[i]}\n${data.dailyData[i]}m',
+            color: colors[i % colors.length],
+            radius: 100,
+            titleStyle: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      }
+    }
+
+    return GlassContainer(
+      width: double.infinity,
+      height: 350,
+      gradient: LinearGradient(
+        colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.05),
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderGradient: LinearGradient(
+        colors: [
+          Colors.white.withOpacity(0.2),
+          Colors.white.withOpacity(0.1),
+        ],
+      ),
+      blur: 10,
+      borderRadius: BorderRadius.circular(AppTheme.radius16),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Focus Time Distribution',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: AppTheme.spacing16),
+            Expanded(
+              child: sections.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No data available',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                        ),
+                      ),
+                    )
+                  : PieChart(
+                      PieChartData(
+                        sections: sections,
+                        sectionsSpace: 2,
+                        centerSpaceRadius: 40,
+                        startDegreeOffset: -90,
+                        borderData: FlBorderData(show: false),
+                        pieTouchData: PieTouchData(
+                          touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                            // Handle touch events
+                          },
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProductivityHeatmap(StatisticsData data) {
     // Heatmap implementation
     return Container(); // Placeholder
   }
-  
+
   Widget _buildBestHoursCard(StatisticsData data) {
     // Best hours card implementation
     return Container(); // Placeholder
   }
-  
+
   String _formatDuration(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
-    if (hours> 0) {
+    if (hours > 0) {
       return '${hours}h ${minutes}m';
     }
     return '$minutes min';
-  } }
+  }
+}

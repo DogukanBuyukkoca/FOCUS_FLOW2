@@ -102,8 +102,194 @@ class StorageService {
   }
   
   static Future<int> getCurrentStreak() async {
-    // Calculate streak logic
-    return 5; // Mock value
+    final sessions = _sessionsBox.values.toList();
+    if (sessions.isEmpty) {
+      print('🔴 No sessions found for streak calculation');
+      return 0;
+    }
+
+    print('📊 Total sessions in box: ${sessions.length}');
+
+    int streak = 0;
+    DateTime currentDate = DateTime.now();
+
+    // Bugünden başlayarak geriye doğru kontrol et
+    // Maksimum 365 gün kontrol et (sonsuz döngüyü önlemek için)
+    for (int i = 0; i < 365; i++) {
+      final dateStr = currentDate.toIso8601String().split('T')[0];
+      final dailySessions = sessions.where((session) {
+        return session['date'] == dateStr;
+      }).toList();
+
+      // Günlük toplam odaklanma süresini hesapla
+      int dailyMinutes = 0;
+      for (var session in dailySessions) {
+        dailyMinutes += (session['duration_minutes'] as int? ?? 0);
+      }
+
+      print('📅 Date: $dateStr, Minutes: $dailyMinutes');
+
+      // En az 5 dakika odaklanma olmalı
+      if (dailyMinutes >= 5) {
+        streak++;
+        currentDate = currentDate.subtract(const Duration(days: 1));
+      } else {
+        // Bugün odaklanma yoksa, dünden devam et
+        // Ancak eğer bugün değilse (i > 0), streak'i kır
+        if (i > 0) {
+          break;
+        }
+        // Bugünse (i == 0), dünü kontrol et
+        currentDate = currentDate.subtract(const Duration(days: 1));
+      }
+    }
+
+    print('🔥 Current Streak: $streak days');
+    return streak;
+  }
+
+  static Future<int> getBestStreak() async {
+    final currentStreak = await getCurrentStreak();
+    final savedBestStreak = _preferencesBox.get('best_streak', defaultValue: 0);
+
+    if (currentStreak > savedBestStreak) {
+      await _preferencesBox.put('best_streak', currentStreak);
+      return currentStreak;
+    }
+
+    return savedBestStreak;
+  }
+
+  // Period bazlı total focus time hesaplama
+  static Future<Duration> getTotalFocusTime(TimePeriod period) async {
+    final sessions = _sessionsBox.values.toList();
+    print('⏰ getTotalFocusTime - Total sessions: ${sessions.length}');
+
+    if (sessions.isEmpty) {
+      print('⏰ No sessions, returning zero');
+      return Duration.zero;
+    }
+
+    final now = DateTime.now();
+    DateTime startDate;
+
+    switch (period) {
+      case TimePeriod.day:
+        startDate = DateTime(now.year, now.month, now.day);
+        break;
+      case TimePeriod.week:
+        startDate = now.subtract(Duration(days: now.weekday - 1));
+        startDate = DateTime(startDate.year, startDate.month, startDate.day);
+        break;
+      case TimePeriod.month:
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case TimePeriod.year:
+        startDate = DateTime(now.year, 1, 1);
+        break;
+    }
+
+    print('⏰ Start date: $startDate, Now: $now');
+
+    int totalMinutes = 0;
+    for (var session in sessions) {
+      final sessionDate = DateTime.parse(session['timestamp']);
+      final minutes = session['duration_minutes'] as int? ?? 0;
+      print('⏰ Session: ${session['timestamp']}, Minutes: $minutes');
+
+      if (sessionDate.isAfter(startDate) || sessionDate.isAtSameMomentAs(startDate)) {
+        totalMinutes += minutes;
+        print('✅ Added to total');
+      } else {
+        print('❌ Before start date, skipped');
+      }
+    }
+
+    print('⏰ Total minutes for $period: $totalMinutes');
+    return Duration(minutes: totalMinutes);
+  }
+
+  // Period bazlı günlük data ve labels
+  static Future<Map<String, dynamic>> getDailyDataForPeriod(TimePeriod period) async {
+    final sessions = _sessionsBox.values.toList();
+    final now = DateTime.now();
+
+    List<int> dailyData = [];
+    List<String> dailyLabels = [];
+
+    switch (period) {
+      case TimePeriod.day:
+        // Bugünün saatlik dağılımı (6 saat aralıkları)
+        dailyLabels = ['00-06', '06-12', '12-18', '18-24'];
+        dailyData = [0, 0, 0, 0];
+
+        for (var session in sessions) {
+          final sessionDate = DateTime.parse(session['timestamp']);
+          if (sessionDate.year == now.year &&
+              sessionDate.month == now.month &&
+              sessionDate.day == now.day) {
+            final hour = sessionDate.hour;
+            final index = hour ~/ 6;
+            dailyData[index] += (session['duration_minutes'] as int? ?? 0);
+          }
+        }
+        break;
+
+      case TimePeriod.week:
+        // Son 7 gün
+        dailyLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        dailyData = [0, 0, 0, 0, 0, 0, 0];
+
+        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+
+        for (var session in sessions) {
+          final sessionDate = DateTime.parse(session['timestamp']);
+          final daysDiff = sessionDate.difference(weekStart).inDays;
+
+          if (daysDiff >= 0 && daysDiff < 7) {
+            dailyData[daysDiff] += (session['duration_minutes'] as int? ?? 0);
+          }
+        }
+        break;
+
+      case TimePeriod.month:
+        // Son 4 hafta
+        dailyLabels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+        dailyData = [0, 0, 0, 0];
+
+        final monthStart = DateTime(now.year, now.month, 1);
+
+        for (var session in sessions) {
+          final sessionDate = DateTime.parse(session['timestamp']);
+          if (sessionDate.year == now.year && sessionDate.month == now.month) {
+            final weekIndex = ((sessionDate.day - 1) ~/ 7).clamp(0, 3);
+            dailyData[weekIndex] += (session['duration_minutes'] as int? ?? 0);
+          }
+        }
+        break;
+
+      case TimePeriod.year:
+        // 12 ay
+        dailyLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        dailyData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        for (var session in sessions) {
+          final sessionDate = DateTime.parse(session['timestamp']);
+          if (sessionDate.year == now.year) {
+            dailyData[sessionDate.month - 1] += (session['duration_minutes'] as int? ?? 0);
+          }
+        }
+        break;
+    }
+
+    final maxMinutes = dailyData.isEmpty ? 0 : dailyData.reduce((a, b) => a > b ? a : b);
+
+    return {
+      'dailyData': dailyData,
+      'dailyLabels': dailyLabels,
+      'maxDailyMinutes': maxMinutes,
+    };
   }
   
   // Updated saveSession method - simplified signature
@@ -247,13 +433,13 @@ class NotificationService {
   
   static Future<void> scheduleReminder(String time) async {
     const details = NotificationDetails(
-      android: const AndroidNotificationDetails(
+      android: AndroidNotificationDetails(
         'focus_flow_reminders',
         'Daily Reminders',
         importance: Importance.high,
         priority: Priority.high,
       ),
-      iOS: const DarwinNotificationDetails(),
+      iOS: DarwinNotificationDetails(),
     );
     
     await _notifications.show(

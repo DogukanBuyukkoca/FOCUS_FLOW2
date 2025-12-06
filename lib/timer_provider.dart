@@ -173,27 +173,35 @@ class TimerNotifier extends StateNotifier<TimerState> {
 
     // Oturum tamamlandığında
     if (state.sessionType == SessionType.focus) {
-      await StorageService.saveSession(
-        DateTime.now(),
-        state.targetDuration.inMinutes,
-      );
+      // Gerçek odaklanma süresini hesapla (tamamlanan süre)
+      final completedMinutes = (state.targetDuration.inSeconds - state.remaining.inSeconds) ~/ 60;
 
-      final newTodayCount = await StorageService.getTodaySessionCount();
-      final newTotalCount = state.totalSessions + 1;
+      // Sadece en az 1 dakika odaklanmışsa kaydet
+      if (completedMinutes > 0) {
+        print('💾 Saving session: $completedMinutes minutes at ${DateTime.now()}');
+        await StorageService.saveSession(
+          DateTime.now(),
+          completedMinutes,
+        );
+        print('✅ Session saved successfully!');
 
-      state = state.copyWith(
-        todaysSessions: newTodayCount,
-        totalSessions: newTotalCount,
-      );
+        final newTodayCount = await StorageService.getTodaySessionCount();
+        final newTotalCount = state.totalSessions + 1;
 
-      // Goal progress güncelle
-      if (state.selectedGoalId != null) {
-        final goal = StorageService.getGoal(state.selectedGoalId!);
-        if (goal != null) {
-          final updatedGoal = goal.copyWith(
-            actualMinutes: goal.actualMinutes + state.targetDuration.inMinutes,
-          );
-          await StorageService.updateGoal(updatedGoal);
+        state = state.copyWith(
+          todaysSessions: newTodayCount,
+          totalSessions: newTotalCount,
+        );
+
+        // Goal progress güncelle
+        if (state.selectedGoalId != null) {
+          final goal = StorageService.getGoal(state.selectedGoalId!);
+          if (goal != null) {
+            final updatedGoal = goal.copyWith(
+              actualMinutes: goal.actualMinutes + completedMinutes,
+            );
+            await StorageService.updateGoal(updatedGoal);
+          }
         }
       }
     }

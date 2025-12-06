@@ -301,6 +301,7 @@ class StatisticsData {
   final Duration totalFocusTime;
   final int totalSessions;
   final int averageSessionMinutes;
+  final int currentStreak;
   final int bestStreak;
   final double completionRate;
   final double focusTimeTrend;
@@ -315,7 +316,8 @@ class StatisticsData {
     required this.totalFocusTime,
     required this.totalSessions,
     required this.averageSessionMinutes,
-    required this.bestStreak,
+    this.currentStreak = 0,
+    this.bestStreak = 0,
     required this.completionRate,
     this.focusTimeTrend = 0,
     this.sessionsChange = 0,

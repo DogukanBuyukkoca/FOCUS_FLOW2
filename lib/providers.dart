@@ -174,22 +174,35 @@ class GoalsNotifier extends StateNotifier<List<Goal>> {
 // STATISTICS PROVIDER
 // ============================================================================
 
-final statisticsProvider = Provider.family<AsyncValue<StatisticsData>, TimePeriod>((ref, period) {
-  return AsyncValue.data(
-    StatisticsData(
-      totalFocusTime: const Duration(hours: 12, minutes: 30),
-      totalSessions: 25,
-      averageSessionMinutes: 23,
-      bestStreak: 7,
-      completionRate: 85.5,
-      focusTimeTrend: 12.5,
-      sessionsChange: 8.0,
-      avgDurationChange: -2.3,
-      completionChange: 5.0,
-      dailyData: [20, 35, 45, 30, 50, 40, 55],
-      dailyLabels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      maxDailyMinutes: 60,
-    ),
+final statisticsProvider = FutureProvider.family<StatisticsData, TimePeriod>((ref, period) async {
+  final currentStreak = await StorageService.getCurrentStreak();
+  final bestStreak = await StorageService.getBestStreak();
+  final totalFocusTime = await StorageService.getTotalFocusTime(period);
+  final dailyDataMap = await StorageService.getDailyDataForPeriod(period);
+
+  // Debug logging
+  print('📊 Statistics Debug:');
+  print('Period: $period');
+  print('Current Streak: $currentStreak');
+  print('Best Streak: $bestStreak');
+  print('Total Focus Time: ${totalFocusTime.inMinutes} minutes');
+  print('Daily Data: ${dailyDataMap['dailyData']}');
+  print('Daily Labels: ${dailyDataMap['dailyLabels']}');
+
+  return StatisticsData(
+    totalFocusTime: totalFocusTime,
+    totalSessions: 0,
+    averageSessionMinutes: 0,
+    currentStreak: currentStreak,
+    bestStreak: bestStreak,
+    completionRate: 0,
+    focusTimeTrend: 0,
+    sessionsChange: 0,
+    avgDurationChange: 0,
+    completionChange: 0,
+    dailyData: dailyDataMap['dailyData'],
+    dailyLabels: dailyDataMap['dailyLabels'],
+    maxDailyMinutes: dailyDataMap['maxDailyMinutes'],
   );
 });
 
